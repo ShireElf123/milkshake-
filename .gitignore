@@ -1,0 +1,16 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Python (tools/)
+__pycache__/
+*.pyc
+.venv/
+
+# Node (only if you add tooling later)
+node_modules/
+
+# Deploy tooling
+.vercel/
