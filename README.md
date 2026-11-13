@@ -9,10 +9,10 @@ A three-page milkshake storefront: an animated landing page, a shop and a produc
 Any static file server works. From the repository root:
 
 ```bash
-python3 -m http.server 8000
+python3 tools/serve.py        # or: python3 -m http.server 8000
 ```
 
-Then open <http://localhost:8000/>. Opening `index.html` straight from disk also works; the browser console then reports two blocked font preloads, which can be ignored (the fonts still load).
+Then open <http://localhost:8000/>. `tools/serve.py` never lets the browser cache anything, so a refresh always shows your latest edit. Opening `index.html` straight from disk also works; the browser console then reports two blocked font preloads, which can be ignored (the fonts still load).
 
 To deploy, publish the repository root as it is (GitHub Pages, Vercel, Netlify or any web host). There is nothing to build. All paths are relative, so the site also works from a sub-folder such as `username.github.io/milkshake-/`.
 
@@ -31,6 +31,7 @@ Behaviour worth knowing:
 - The hero changes flavour by itself every 6 seconds. It pauses while the pointer is over a control, while the hero is off screen and while the cart is open, and it stops for good once the visitor uses the arrows or the arrow keys.
 - With "reduce motion" switched on in the operating system there is no autoplay, parallax, falling fruit or page transition.
 - Below 860 px the navigation becomes a menu button; below 760 px the hero is rearranged for phones.
+- A picture that fails to load is requested again, twice at most, and hidden if it still fails, so visitors never see a broken-picture icon.
 
 ## Files
 
@@ -46,7 +47,7 @@ assets/
   img/fruit/            fruit and chocolate cut-outs
   img/og.jpg            preview image for links shared on social media
   vendor/               GSAP (animation), Matter.js (falling fruit, loaded on demand)
-tools/                  optional Python scripts that produce the images (not needed to run the site)
+tools/                  optional Python scripts: a preview server and the image pipeline (not needed to run the site)
 ```
 
 ## Change the content
@@ -80,10 +81,6 @@ python3 tools/build_assets.py
 
 # cut a photo on a flat blue or green backdrop into a transparent, trimmed picture
 python3 tools/cutout.py mango.png assets/img/fruit/mango.webp --key b
-
-# render a chocolate piece: columns, rows, three rotation angles, size
-python3 tools/render_choc.py chunk.png 2 1 62 25 -18 1000
-python3 tools/cutout.py chunk.png assets/img/fruit/chocolate-chunk.webp --gamma 1.32 --contrast 1.12
 ```
 
 All five glasses come from one master (`tools/masters/glass.webp`) and all five backdrops from another (`tools/masters/scene.webp`); the script shifts their colour. To give a flavour its own photograph, replace its file in `assets/img/shakes/` or `assets/img/scenes/` and remove it from `FLAVOURS`, so the script does not overwrite it.
@@ -100,7 +97,7 @@ All five glasses come from one master (`tools/masters/glass.webp`) and all five 
 
 ## Credits and licences
 
-- **Images.** The glass, the backdrop and the fruit were made with an AI image generator and then cut out and recoloured with the scripts in `tools/`. The chocolate pieces are rendered by `tools/render_choc.py`. None of them shows a real product.
+- **Images.** The glass, the backdrop, the fruit and the chocolate pieces were made with an AI image generator and then cut out and recoloured with the scripts in `tools/`. None of them shows a real product.
 - **Fonts.** [Suez One](https://fonts.google.com/specimen/Suez+One) and [Outfit](https://fonts.google.com/specimen/Outfit), both under the SIL Open Font License 1.1, taken from the Fontsource packages (version 5.3.0). The licence texts are in `assets/fonts/`.
 - **GSAP 3.15.1.** Subject to GreenSock's [standard "no charge" licence](https://gsap.com/standard-license). Read it before commercial use.
 - **Matter.js 0.20.0.** MIT licence; the text is in `assets/vendor/`.

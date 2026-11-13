@@ -27,6 +27,7 @@
 html{-webkit-text-size-adjust:100%;scroll-padding-top:90px}
 body{font:400 16px/1.5 var(--font-ui);background:var(--cream);color:var(--ink);overflow-x:hidden;-webkit-font-smoothing:antialiased}
 img,svg,canvas{display:block;max-width:100%}
+img.is-missing{visibility:hidden}   /* failed to load, even after retries (see app.js) */
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none;padding:0}
 a{color:inherit}

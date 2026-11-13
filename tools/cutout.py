@@ -6,8 +6,8 @@
     # a photo of fruit on a flat blue (or green) backdrop -> cut-out
     python3 tools/cutout.py mango.png assets/img/fruit/mango.webp --key b
 
-    # a picture that is already transparent (e.g. from render_choc.py): just trim, resize, tone
-    python3 tools/cutout.py chunk.png assets/img/fruit/chocolate-chunk.webp --gamma 1.3 --contrast 1.1
+    # a picture that is already transparent: just trim, resize and adjust the tone
+    python3 tools/cutout.py piece.png assets/img/fruit/piece.webp --gamma 1.2 --contrast 1.1
 
 The backdrop should be an even, saturated blue or green that does not appear in
 the subject (use blue for green fruit and the other way round).

@@ -34,6 +34,33 @@
   const themeMeta = $('meta[name="theme-color"]');
   const setTheme = colour => themeMeta && themeMeta.setAttribute('content', colour);
   const raf = fn => { let queued = false; return () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; fn(); }); } }; };
+
+  /* A picture that fails to load (a dropped connection, say) is fetched again, twice at most.
+     If it still fails it is hidden, so no broken-picture icon shows. */
+  const RETRIES = 2;
+  const bare = url => url.split('?')[0];
+  const retryUrl = (url, n) => `${bare(url)}?retry=${n}`;
+  document.addEventListener('error', e => {
+    const img = e.target;
+    if (!(img instanceof HTMLImageElement) || !img.getAttribute('src')) return;
+    const url = bare(img.getAttribute('src'));
+    const tries = img.dataset.failed === url ? +img.dataset.tries : 0;   // counted per picture: some elements are reused
+    if (tries >= RETRIES) { img.classList.add('is-missing'); return; }
+    img.dataset.failed = url;
+    img.dataset.tries = tries + 1;
+    setTimeout(() => { if (bare(img.getAttribute('src') || '') === url) img.src = retryUrl(url, tries + 1); }, 700 * (tries + 1));
+  }, true);
+  document.addEventListener('load', e => { if (e.target instanceof HTMLImageElement) e.target.classList.remove('is-missing'); }, true);
+
+  /* backgrounds have no error event of their own, so an Image watches the same file */
+  function setBackground(el, url, tries = 0) {
+    const src = tries ? retryUrl(url, tries) : url;
+    el.style.backgroundImage = `url("${src}")`;
+    const probe = new Image();
+    probe.onerror = () => { if (tries < RETRIES) setTimeout(() => setBackground(el, url, tries + 1), 700 * (tries + 1)); };
+    probe.src = src;
+  }
+
   /* re-rendering a block replaces its buttons; keep keyboard focus on the same control */
   const keepFocus = render => {
     const key = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.key : null;
@@ -59,7 +86,7 @@
   /* slide 1 loads straight away, the rest once the page has finished loading */
   function loadSlide(i) {
     const scene = scenes[i], jar = jars[i];
-    if (scene.dataset.bg) { scene.style.backgroundImage = `url("${scene.dataset.bg}")`; delete scene.dataset.bg; }
+    if (scene.dataset.bg) { setBackground(scene, scene.dataset.bg); delete scene.dataset.bg; }
     if (jar.dataset.src) { jar.src = jar.dataset.src; delete jar.dataset.src; }
   }
   function loadAllSlides() {
