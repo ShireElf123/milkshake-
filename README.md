@@ -35,6 +35,9 @@ Behaviour worth knowing:
 - The fruit on the hero is pushable: it drifts away and spins when the mouse or a finger comes near, and floats back afterwards. It keeps bobbing either way.
 - The liquid in each backdrop moves on its own (`assets/js/liquid.js`, a small WebGL layer drawn over the photograph). It loads after the page is up, pauses while the hero is off screen, and where WebGL is missing — or with reduced motion on — the photograph simply stays still.
 - Every shake has a second photograph, served with cream and a straw: the little card on the hero shows it, and the product page has both pictures to flip between.
+- The whole page follows the active flavour, not just the hero: the "why" section retints, the band and small accents pick up the flavour's colours, the shop page returns to the neutral brand theme, and a product page themes itself from its own flavour. All of it comes from `data.js`.
+- Below the hero, a second marquee row drifts the other way as you scroll, and the "why" section is a pinned three-step story: the panel shows the step you are reading (fruit → blend → served), the rail tracks how far through you are, and the 300 ml tile counts up when it scrolls into view.
+- On a flavour change the old glass now sinks small into the pool behind a rising waterline and the new one climbs back out of it, instead of fading away.
 - Checkout writes the cart out as a WhatsApp message to the shop's number (`shop.whatsapp` in `assets/js/data.js`). Nothing is sent until the visitor presses send in WhatsApp.
 - A picture that fails to load is requested again, twice at most, and hidden if it still fails, so visitors never see a broken-picture icon.
 
@@ -63,6 +66,9 @@ tools/                  optional Python scripts: a preview server and the image 
 Almost everything you are likely to edit is in `assets/js/data.js`:
 
 - `brand` is the name shown in the page titles.
+- `tagline` fills the meta description and the Open Graph tags at start-up, so link previews follow the data file too.
+- `socialTag` is the hashtag shown above the fruit band.
+- `theme` holds the page-wide colours: `ink` (text), `cream` (background), `alert`, `accent`, `soft` and `star` (rating stars). They are written to the stylesheet's custom properties when the page starts; `styles.css` keeps the same values as fallbacks for when the script has not run.
 - `shop` holds the currency, the free-shipping threshold, the shipping fee, the discount code and the pack sizes.
 - `flavours` holds the colours of each flavour, the colour of the shake itself (`cream`, used for the splash drops) and whether there is a served photo (`served`).
 - `shop.whatsapp` is the number orders are sent to: full international format, digits only (`27821234567`). While it is empty, WhatsApp asks the visitor who to send the order to.

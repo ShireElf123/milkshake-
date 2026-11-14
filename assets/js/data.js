@@ -6,6 +6,20 @@
  */
 window.WHIRL = {
   brand: 'Whirl',
+  tagline: 'thick, creamy milkshakes made with real fruit',   /* titles, meta tags, previews */
+  socialTag: '#ShakeItUp',                                    /* the footer's hashtag */
+
+  /* Page colours in one place. The stylesheet holds the same values as fallbacks;
+     changing them here re-skins every page. While the hero is showing a flavour,
+     its own tile/soft/deep colours take over --accent/--soft/--deep. */
+  theme: {
+    ink: '#2a0a0e',       /* text and dark buttons */
+    cream: '#fff4ec',     /* page background */
+    alert: '#ff5a4f',
+    accent: '#9a5cc4',    /* bars, the fruit band, outlines — before a flavour is active */
+    soft: '#f3e3ff',      /* pale section tint */
+    star: '#f5a623'       /* rating stars */
+  },
 
   shop: {
     currency: 'R',            // South African rand

@@ -15,6 +15,8 @@ Inputs  (tools/masters/)
 Outputs (assets/img/)
     shakes/<flavour>.webp   the glass                    (transparent background)
     scenes/<flavour>.webp   the backdrop
+    scenes/<flavour>-flow.webp  a mask of the liquid in that backdrop, for the
+                           moving-liquid layer (assets/js/liquid.js)
     served/<flavour>.webp   the served photo, plus <flavour>-thumb.webp for small spots
     og.jpg                  1200x630 social share image  (first flavour in the list)
 
@@ -27,7 +29,8 @@ import os
 import sys
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from scipy import ndimage
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from colorlib import recolor  # noqa: E402
@@ -101,6 +104,35 @@ def scene_image(name, f, generic):
     return to_img(recolor(own, median_hex(own), f['scene'], hue_keep=1.0))
 
 
+def flow_mask(scene, path):
+    """Where in the backdrop is liquid? Colour and texture find the pool that touches
+    the bottom of the picture; everything below its horizon becomes the mask, so the
+    WebGL layer only ever draws over liquid."""
+    a = np.asarray(scene.convert('RGB')).astype(np.float32) / 255.0
+    H, W, _ = a.shape
+    top = np.median(a[int(H * 0.06):int(H * 0.14)], axis=0)
+    pad = np.pad(top, ((25, 25), (0, 0)), mode='edge')
+    wall = np.stack([np.convolve(pad[:, c], np.ones(51) / 51, mode='valid') for c in range(3)], axis=1)
+    dist = np.sqrt(((a - wall[None, :, :]) ** 2).sum(-1))
+    lum = a @ [0.299, 0.587, 0.114]
+    gy, gx = np.gradient(lum)
+    tex = ndimage.uniform_filter(np.hypot(gx, gy), size=9)
+    liq = (dist > 0.10) | (lum > np.median(lum[:int(H * 0.2)]) + 0.22) | (tex > 0.012)
+    liq = ndimage.binary_closing(liq, np.ones((9, 9)), border_value=1)
+    lab, n = ndimage.label(liq)
+    sizes = ndimage.sum(liq, lab, index=range(1, n + 1))
+    keep = [t for t in np.unique(lab[-3, :]) if t > 0 and sizes[t - 1] > H * W * 0.01]
+    pool = np.isin(lab, keep)
+    horizon = np.full(W, H, dtype=np.int32)
+    cols = np.where(pool.any(0))[0]
+    horizon[cols] = np.argmax(pool[:, cols], axis=0)
+    hsm = np.convolve(np.pad(horizon, 20, mode='edge'), np.ones(41) / 41, mode='valid')
+    rows = np.arange(H)[:, None]
+    mask = np.clip((rows - (hsm[None, :] - H * 0.004)) / (H * 0.012), 0, 1).astype(np.float32)
+    m = Image.fromarray((mask * 255).astype(np.uint8), 'L').filter(ImageFilter.GaussianBlur(2))
+    m.save(path, 'WEBP', quality=88, method=6)
+
+
 def build():
     glass = load('glass.webp')
     scene = load('scene.webp')[..., :3]
@@ -113,6 +145,7 @@ def build():
         gi.save(os.path.join(OUT, 'shakes', name + '.webp'), 'WEBP', quality=88, method=6, alpha_quality=92)
         si = scene_image(name, f, scene)
         si.save(os.path.join(OUT, 'scenes', name + '.webp'), 'WEBP', quality=82, method=6)
+        flow_mask(si, os.path.join(OUT, 'scenes', name + '-flow.webp'))
         made[name] = (si, gi)
         sv = served_image(name)
         if sv is not None:

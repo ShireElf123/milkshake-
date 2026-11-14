@@ -116,6 +116,7 @@
   </section>
 
   <div class="marquee display" aria-hidden="true"><div id="marquee"></div></div>
+  <div class="marquee marquee--echo display" aria-hidden="true"><div id="marquee-echo"></div></div>
 
   <section class="section stack" id="pick">
     <h2 class="display">Pick your <em>flavour</em></h2>
@@ -124,11 +125,27 @@
 
   <section class="section stack" id="why">
     <h2 class="display">Why you’ll love it</h2>
+    <div class="story">
+      <div class="story__stage" aria-hidden="true">
+        <div class="story__panel">
+          <img class="story__img is-active" alt="">
+          <img class="story__img" alt="">
+          <img class="story__img" alt="">
+          <b class="story__num display" id="story-num">01</b>
+        </div>
+        <div class="story__rail"><i id="story-rail"></i></div>
+      </div>
+      <ol class="story__steps" id="story-steps">
+        <li class="is-on"><h3 class="display">Whole fruit, real farms</h3><p>Nothing frozen for a year, nothing from a powder. The fruit goes in whole, and you can taste it (placeholder copy).</p></li>
+        <li><h3 class="display">Blended thick &amp; cold</h3><p>Sixty seconds in the blender with ice-cold milk and cream, until the shake stands up on the spoon (placeholder copy).</p></li>
+        <li><h3 class="display">Crowned &amp; served</h3><p>A swirl of cream, something fresh on top and a paper straw. In your hand inside a minute (placeholder copy).</p></li>
+      </ol>
+    </div>
     <div class="stats">
       <div><b class="display">Real fruit</b>Blended in, never faked (placeholder copy)</div>
       <div><b class="display">Thick</b>Creamy, spoonable texture</div>
       <div><b class="display">Fresh</b>Made to order, ready in a minute</div>
-      <div><b class="display">300ml</b>One generous cup</div>
+      <div><b class="display" data-count="300" data-suffix="ml">300ml</b>One generous cup</div>
     </div>
   </section>
 
@@ -169,7 +186,7 @@
 </div>
 
 <footer class="footer" id="contact">
-  <h2 class="display">#ShakeItUp</h2>
+  <h2 class="display" data-tag>#ShakeItUp</h2>
   <div class="footer__cols">
     <div><h3>Explore</h3><a href="#/">Home</a><a href="#/shop">Shop all shakes</a><a href="#/product/t5">Taster Box</a></div>
     <div><h3>Contact</h3><a href="mailto:hello@example.com">hello@example.com</a><span>Mon–Sat, 9:00–18:00</span><span class="muted">Placeholder details</span></div>

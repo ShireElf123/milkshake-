@@ -39,6 +39,21 @@
   const tileOf = p => p.tile || D.flavours[p.flavour].tile;
   const themeMeta = $('meta[name="theme-color"]');
   const setTheme = colour => themeMeta && themeMeta.setAttribute('content', colour);
+  /* the whole page follows the active flavour: data.js owns the colours, the
+     stylesheet only holds fallbacks for when the script has not run yet */
+  const rootStyle = document.documentElement.style;
+  function applyTheme(f) {
+    rootStyle.setProperty('--accent', f.tile);
+    rootStyle.setProperty('--soft', f.soft);
+    rootStyle.setProperty('--deep', f.deep);
+    setTheme(f.tile);
+  }
+  function neutralTheme() {
+    const t = D.theme || {};
+    rootStyle.setProperty('--accent', t.accent || '#9a5cc4');
+    rootStyle.setProperty('--soft', t.soft || '#f3e3ff');
+    setTheme('#fff4ec');
+  }
   const raf = fn => { let queued = false; return () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; fn(); }); } }; };
 
   /* A picture that fails to load (a dropped connection, say) is fetched again, twice at most.
@@ -215,10 +230,37 @@
     $('#ring-value').textContent = s.badge.value;
     $('#ring-icon').setAttribute('href', '#i-' + s.flavour);
     hero.style.backgroundColor = f.tile;
-    if (page === 'home') setTheme(f.tile);
+    if (page === 'home') { applyTheme(f); fillStory(); }
     placeTags();
     flowRing();
     renderFruit(s, animate);
+  }
+
+  /* Three steps, one pinned panel: the picture and the counter follow the step
+     being read, and the rail shows how far through the story you are. */
+  const storySteps = $$('#story-steps li');
+  let storyOn = 0;
+  function fillStory() {
+    const s = S[cur], imgs = $$('.story__img');
+    if (imgs.length < 3) return;
+    imgs[0].src = src.fruit(s.fruit[0][0]);
+    imgs[1].src = src.shake(s.flavour);
+    imgs[2].src = D.flavours[s.flavour].served ? src.served(s.flavour) : src.shake(s.flavour);
+  }
+  function paintStory() {
+    if (!storySteps.length || !storySteps[0].offsetParent) return;
+    const mid = innerHeight * 0.5;
+    let best = 0, bd = Infinity;
+    storySteps.forEach((li, i) => { const r = li.getBoundingClientRect(); const d = Math.abs((r.top + r.bottom) / 2 - mid); if (d < bd) { bd = d; best = i; } });
+    const wrap = storySteps[0].parentElement.getBoundingClientRect();
+    $('#story-rail').style.height = (clamp((mid - wrap.top) / Math.max(wrap.height, 1), 0, 1) * 100).toFixed(1) + '%';
+    if (best === storyOn) return;
+    storyOn = best;
+    storySteps.forEach((li, i) => li.classList.toggle('is-on', i === best));
+    $$('.story__img').forEach((im, i) => im.classList.toggle('is-active', i === best));
+    const num = $('#story-num');
+    num.textContent = '0' + (best + 1);
+    if (motion) gsap.fromTo(num, { y: 16, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.45, ease: 'power2.out' });
   }
 
   function parallax() {
@@ -337,11 +379,13 @@
     if (next === old) return;
     cur = next;
     loadSlide(cur);
+    const jar = $('#jar-move'), H = hero.clientHeight;
     const swapJar = () => jars.forEach((j, i) => j.classList.toggle('is-active', i === cur));
     /* the new backdrop is fully in: make it the active scene and hand it to the moving liquid */
     const settle = () => {
       scenes.forEach((sc, i) => { sc.classList.toggle('is-active', i === cur); sc.style.opacity = sc.style.zIndex = ''; clip(sc, ''); });
       foam.style.visibility = '';
+      jar.style.clipPath = '';
       if (liquid) liquid.show(cur);
     };
     if (!motion) {
@@ -352,6 +396,14 @@
     busy = true;
     const leaving = $$('#fruit img');
     gsap.killTweensOf(leaving);
+
+    /* the old shake sinks small into the pool behind a rising waterline, the new
+       one climbs back out of it — the glass never simply fades away */
+    const rest = glassBox();
+    const poolY = H * 0.76, restBottom = rest.top + rest.h;
+    const cutJar = line => { const r = jar.getBoundingClientRect(); jar.style.clipPath = `inset(-40px -40px ${clamp(r.bottom - line, 0, r.height + 80).toFixed(1)}px -40px)`; };
+    const sink = { p: 0 }, rise = { q: 1 };
+    gsap.set(jar, { y: 0, scale: 1, opacity: 1, visibility: 'visible' });   // start clean: nothing left over from the last change
 
     const glass = glassBox(), fx = glass.x, fy = glass.top + glass.h * 0.56;
     const reach = Math.hypot(Math.max(fx, hero.clientWidth - fx), Math.max(fy, hero.clientHeight - fy)) * 1.12;   // past the far corner, wobble included
@@ -368,14 +420,19 @@
     foam.style.visibility = 'visible';
 
     tl.to(flood, { p: 1, duration: 1, ease: 'power2.out', onUpdate: paintFlood, onComplete: settle }, 0.05)
-      .to('#jar-move', { y: 70, scale: 0.82, autoAlpha: 0, duration: 0.35, ease: 'power2.in' }, 0)
+      .to(jar, { y: H * 0.62, scale: 0.55, duration: 0.5, ease: 'power2.in' }, 0)
+      .to(sink, { p: 1, duration: 0.5, ease: 'power1.in', onUpdate: () => cutJar(restBottom + (poolY - restBottom) * Math.min(1, sink.p * 1.35)) }, 0)
+      .to(jar, { opacity: 0, duration: 0.1 }, 0.34)
       .to(leaving, { y: -180, opacity: 0, rotation: '+=50', duration: 0.45, stagger: 0.04, ease: 'power2.in' }, 0)
       .to(words[old], { xPercent: -110 * dir, duration: 0.85, ease: 'power3.inOut' }, 0)
       .fromTo(words[cur], { autoAlpha: 1, xPercent: 110 * dir }, { xPercent: 0, duration: 0.85, ease: 'power3.inOut' }, 0)
       .to(FADE, { opacity: 0, duration: 0.25 }, 0)
       .call(() => { swapJar(); fill(cur, true); }, null, 0.5)
       .to(FADE, { opacity: 1, duration: 0.4 }, 0.55)
-      .to('#jar-move', { y: 0, scale: 1, autoAlpha: 1, duration: 0.8, ease: 'back.out(1.8)' }, 0.55)
+      .to(jar, { opacity: 1, duration: 0.18, ease: 'none' }, 0.5)
+      .to(jar, { y: 0, scale: 1, duration: 0.85, ease: 'back.out(1.5)' }, 0.5)
+      .to(rise, { q: 0, duration: 0.85, ease: 'power2.out', onUpdate: () => cutJar(poolY + (restBottom - poolY) * (1 - rise.q)) }, 0.5)
+      .call(() => { jar.style.clipPath = ''; }, null, 1.38)
       .call(splash, null, 0.8)
       .set(words[old], { autoAlpha: 0 }, 0.9)
       /* the glass drops back from its overshoot: a ripple runs out across the pool from its foot */
@@ -458,10 +515,21 @@
     </div></article>`;
 
   function initHome() {
-    $('#marquee').innerHTML = 'Shake it up <i>★</i> Real fruit <i>★</i> Thick &amp; creamy <i>★</i> Made fresh <i>★</i> '.repeat(8);
+    const line = 'Shake it up <i>★</i> Real fruit <i>★</i> Thick &amp; creamy <i>★</i> Made fresh <i>★</i> '.repeat(8);
+    $('#marquee').innerHTML = line;
+    $('#marquee-echo').innerHTML = line;
     $('#flavour-grid').innerHTML = D.products.filter(p => p.cat === 'Singles').map((p, i) => card(p, i)).join('');
     $('#stat-kcal').textContent = D.nutrition.kcal;
     $('#stat-ml').textContent = D.nutrition.ml;
+    /* the 300ml tile counts up the first time it scrolls into view */
+    if (motion && 'IntersectionObserver' in window) $$('b[data-count]').forEach(b => {
+      new IntersectionObserver((es, ob) => {
+        if (!es[0].isIntersecting) return;
+        ob.disconnect();
+        const to = +b.dataset.count, suffix = b.dataset.suffix || '', o = { n: 0 };
+        gsap.to(o, { n: to, duration: 1.1, ease: 'power2.out', onUpdate: () => { b.textContent = Math.round(o.n) + suffix; } });
+      }, { threshold: 0.6 }).observe(b);
+    });
   }
 
   /* ───────── 4. Shop ───────── */
@@ -524,6 +592,7 @@
   function renderProduct(id) {
     const p = productById(id) || D.products[0];
     Object.assign(view, { id: p.id, pack: 0, sub: false, qty: 1, shot: 0 });
+    applyTheme(D.flavours[p.flavour]);
     const shots = [{ url: src.shake(p.flavour), thumb: src.shake(p.flavour), alt: `${p.name} milkshake`, label: 'Show the splash photo' }];
     if (D.flavours[p.flavour].served) shots.push({ url: src.served(p.flavour), thumb: src.thumb(p.flavour), alt: `${p.name}, served with whipped cream and a straw`, label: 'Show the shake as it is served' });
     $('#product-view').innerHTML = `<div class="gallery" style="--tile:${tileOf(p)}">
@@ -721,7 +790,9 @@
     if (key === 'shop') { renderShop(); title = `Shop — ${D.brand} Shakes`; }
     if (key === 'product') title = `${renderProduct(id).name} — ${D.brand} Shakes`;
     document.title = title;
-    setTheme(key === 'home' ? D.flavours[S[cur].flavour].tile : '#fff4ec');
+    if (key === 'home') { applyTheme(D.flavours[S[cur].flavour]); fillStory(); }
+    else if (key === 'shop') neutralTheme();
+    /* the product page themes itself from its own flavour, in renderProduct */
     observeReveals(pages[key]);
     updateHeader();
     if (key === 'home') { fit(); layoutStack(); }
@@ -923,6 +994,19 @@
 
   /* ───────── 10. Start-up ───────── */
   $$('[data-brand]').forEach(el => { el.textContent = D.brand; });
+  $$('[data-tag]').forEach(el => { el.textContent = D.socialTag || '#ShakeItUp'; });
+  {
+    const t = D.theme || {};
+    for (const [key, varName] of [['ink', '--ink'], ['cream', '--cream'], ['alert', '--alert'], ['accent', '--accent'], ['soft', '--soft'], ['star', '--star']])
+      if (t[key]) rootStyle.setProperty(varName, t[key]);
+    const tag = D.tagline || 'thick, creamy milkshakes made with real fruit';
+    const md = $('meta[name="description"]');
+    if (md) md.setAttribute('content', `${D.brand} Shakes: ${tag}.`);
+    const ogd = $('meta[property="og:description"]');
+    if (ogd) ogd.setAttribute('content', tag.charAt(0).toUpperCase() + tag.slice(1) + '.');
+    const ogt = $('meta[property="og:title"]');
+    if (ogt) ogt.setAttribute('content', `${D.brand} Shakes`);
+  }
   $('.logo').setAttribute('aria-label', D.brand + ' home');
   $$('#free-from, #free-from-2').forEach(el => { el.textContent = money(D.shop.freeShippingFrom); });
   $('#code-hint').textContent = D.shop.discountCode;
@@ -949,9 +1033,18 @@
   renderCart();
   route();
 
-  const relayout = raf(() => { fit(); layoutStack(); updateHeader(); });
+  const paintScroll = raf(() => {
+    paintStack();
+    paintStory();
+    /* the two marquee rows drift apart a little as you scroll into the page */
+    if (motion && scrollY < innerHeight * 1.6) {
+      $('#marquee').style.translate = `0 ${(scrollY * 0.05).toFixed(1)}px`;
+      $('#marquee-echo').style.translate = `0 ${(-scrollY * 0.035).toFixed(1)}px`;
+    }
+  });
+  const relayout = raf(() => { fit(); layoutStack(); updateHeader(); paintStory(); });
   addEventListener('resize', relayout);
-  addEventListener('scroll', raf(paintStack), { passive: true });
+  addEventListener('scroll', paintScroll, { passive: true });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
   if (document.readyState === 'complete') { loadAllSlides(); relayout(); }
   else addEventListener('load', () => { loadAllSlides(); relayout(); }, { once: true });
