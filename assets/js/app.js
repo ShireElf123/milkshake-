@@ -27,8 +27,14 @@
   const src = {
     shake: flavour => `assets/img/shakes/${flavour}.webp`,
     scene: flavour => `assets/img/scenes/${flavour}.webp`,
+    flow: flavour => `assets/img/scenes/${flavour}-flow.webp`,
+    served: flavour => `assets/img/served/${flavour}.webp`,
+    /* small picture of a flavour: the served shot where there is one, else the glass itself */
+    thumb: flavour => D.flavours[flavour].served ? `assets/img/served/${flavour}-thumb.webp` : `assets/img/shakes/${flavour}.webp`,
     fruit: name => `assets/img/fruit/${name}.webp`
   };
+  /* blend two #rrggbb colours: mix('#000000', '#ffffff', 0.25) is a dark grey */
+  const mix = (a, b, t) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t).toString(16).padStart(2, '0')).join('');
   const productById = id => D.products.find(p => p.id === id);
   const tileOf = p => p.tile || D.flavours[p.flavour].tile;
   const themeMeta = $('meta[name="theme-color"]');
@@ -77,11 +83,15 @@
   const layout = [];                             // per headline: font size, baseline and its runs of low letters
   let cur = 0, busy = false, heroSeen = true, hold = false, auto = true, timer = 0;
   let px = 0, py = 0;
+  let liquid = null;                             // the moving backdrop (liquid.js), once it has loaded
+  let pieces = [], pushing = false;              // the fruit on screen, and whether the push simulation is running
+  const ptr = { x: 0, y: 0, vx: 0, vy: 0, t: 0, wake: 0, on: false };   // mouse or finger over the hero, in hero pixels
 
-  $('#scenes').innerHTML = S.map((s, i) => `<div class="scene${i ? '' : ' is-active'}" data-bg="${src.scene(s.flavour)}"></div>`).join('');
+  $('#scenes').innerHTML = S.map((s, i) => `<div class="scene${i ? '' : ' is-active'}" data-bg="${src.scene(s.flavour)}"></div>`).join('') + '<canvas class="liquid" id="liquid" aria-hidden="true"></canvas><i class="foam" id="foam"></i>';
   $('#words').innerHTML = S.map((s, i) => `<div class="word-wrap"><span class="word${i ? '' : ' is-active'}" style="color:${D.flavours[s.flavour].ink}">${esc(s.word)}<i></i></span></div>`).join('');
   $('#jar-float').innerHTML = S.map((s, i) => `<img class="${i ? '' : 'is-active'}" data-src="${src.shake(s.flavour)}" alt="" decoding="async">`).join('');
   const scenes = $$('.scene', hero), words = $$('.word', hero), jars = $$('#jar-float img');
+  const foam = $('#foam'), drops = $('#drops');
 
   /* slide 1 loads straight away, the rest once the page has finished loading */
   function loadSlide(i) {
@@ -90,7 +100,7 @@
     if (jar.dataset.src) { jar.src = jar.dataset.src; delete jar.dataset.src; }
   }
   function loadAllSlides() {
-    S.forEach((s, i) => { loadSlide(i); s.fruit.forEach(f => { new Image().src = src.fruit(f[0]); }); });
+    S.forEach((s, i) => { loadSlide(i); new Image().src = src.thumb(s.flavour); s.fruit.forEach(f => { new Image().src = src.fruit(f[0]); }); });
   }
 
   /* Size every headline so it runs edge to edge and note where its letters end up.
@@ -169,12 +179,19 @@
     if (motion) ringTween = gsap.fromTo(label, { attr: { startOffset: 0 } }, { attr: { startOffset: -period }, duration: period / 7, ease: 'none', repeat: -1, paused: !heroSeen });
   }
 
+  /* Each piece is three nested elements, so three movements can run without fighting:
+     the outer one follows the mouse (parallax), the middle one is pushed about (pushFruit)
+     and the picture itself bobs up and down for as long as the slide is showing. */
   function renderFruit(slide, animate) {
     const box = $('#fruit');
     if (gsap) gsap.killTweensOf($$('.fruit, img', box));
     box.innerHTML = slide.fruit.map(([name, x, y, size, rot, depth, blur, flip]) =>
       `<i class="fruit${depth >= 1 ? ' is-front' : depth < 0.5 ? ' is-far' : ''}" data-depth="${depth}" style="left:${x}%;top:${y}%;--w:clamp(${Math.round(size * 5)}px,${size}vw,${Math.round(size * 21)}px);--blur:${blur || 0}px${flip ? ';transform:scaleX(-1)' : ''}">` +
-      `<img src="${src.fruit(name)}" alt="" style="transform:rotate(${rot}deg)"></i>`).join('');
+      `<b><img src="${src.fruit(name)}" alt="" style="transform:rotate(${rot}deg)"></b></i>`).join('');
+    pieces = $$('.fruit', box).map((el, k) => {
+      const [, x, y, size, , depth, , flip] = slide.fruit[k];
+      return { el, inner: el.firstElementChild, x, y, size, weight: clamp(depth, 0.45, 1.3), flip: flip ? -1 : 1, ox: 0, oy: 0, vx: 0, vy: 0, r: 0, vr: 0 };
+    });
     if (!motion) return;
     const imgs = $$('img', box);
     if (animate) gsap.from(imgs, { y: 160, opacity: 0, rotation: '+=70', scale: 0.4, stagger: 0.08, duration: 1, ease: 'back.out(1.5)' });
@@ -190,7 +207,7 @@
     tags.classList.toggle('is-right', s.tagsSide === 'right');
     $('#hcard-name').textContent = p.name;
     $('#hcard-text').textContent = s.text;
-    $('#hcard-thumb img').src = src.shake(s.flavour);
+    $('#hcard-thumb img').src = src.thumb(s.flavour);
     $('#hcard-thumb').href = $('#hcard-view').href = '#/product/' + p.id;
     $('#hcard-view').setAttribute('aria-label', 'View ' + p.name);
     /* non-breaking spaces, so the gaps between repeats are not collapsed */
@@ -210,6 +227,108 @@
     gsap.to('#fruit .fruit', { x: (i, el) => -px * 90 * el.dataset.depth, y: (i, el) => -py * 36 * el.dataset.depth, duration: 1.4, overwrite: 'auto' });
   }
 
+  /* Fruit you can push. A piece near the mouse or a finger is shoved away from it and
+     set spinning, then a soft spring floats it back to where it belongs. Runs only
+     while something is actually moving. */
+  const PUSH = { force: 5200, drag: 5.5, spin: 1.5, tilt: 0.05, spring: 38, damping: 5.2, springR: 30, dampingR: 4.2 };
+  function nudge(clientX, clientY, fresh) {
+    const box = hero.getBoundingClientRect(), now = performance.now();
+    const x = clientX - box.left, y = clientY - box.top, dt = now - ptr.t;
+    if (!fresh && ptr.on && dt < 120) {
+      const k = 1000 / Math.max(dt, 8);
+      ptr.vx = clamp((ptr.vx + (x - ptr.x) * k) / 2, -3000, 3000);
+      ptr.vy = clamp((ptr.vy + (y - ptr.y) * k) / 2, -3000, 3000);
+    } else ptr.vx = ptr.vy = 0;
+    /* a moving pointer leaves a faint wake in the liquid; a tap makes a proper ripple */
+    if (liquid && (fresh || (now - ptr.wake > 240 && Math.hypot(ptr.vx, ptr.vy) > 140))) { ptr.wake = now; liquid.ripple(x, y, fresh ? 0.8 : 0.35, true); }
+    ptr.x = x; ptr.y = y; ptr.t = now; ptr.on = true;
+    if (!pushing) { pushing = true; gsap.ticker.add(pushFruit); }
+  }
+  function pushFruit(time, delta) {
+    const dt = Math.min(delta, 80) / 1000, W = hero.clientWidth, H = hero.clientHeight;   /* capped, but not so tight that a slow frame rate puts the spring in slow motion */
+    let moving = false;
+    for (const f of pieces) {
+      let ax = 0, ay = 0, ar = 0;
+      if (ptr.on) {
+        const size = clamp(f.size * W / 100, f.size * 5, f.size * 21), reach = size * 0.5 + W * 0.05 + 40;
+        const dx = f.x / 100 * W + gsap.getProperty(f.el, 'x') + f.ox - ptr.x;
+        const dy = f.y / 100 * H + gsap.getProperty(f.el, 'y') + f.oy - ptr.y;
+        const d = Math.hypot(dx, dy) || 1;
+        if (d < reach) {
+          const near = 1 - d / reach, shove = near * near * PUSH.force * f.weight;
+          ax = dx / d * shove + ptr.vx * near * PUSH.drag * f.weight;
+          ay = dy / d * shove + ptr.vy * near * PUSH.drag * f.weight;
+          ar = (dx * ptr.vy - dy * ptr.vx) / d * near * PUSH.spin + dx / d * shove * PUSH.tilt;   // a glancing pass spins it
+        }
+      }
+      f.vx += (ax - PUSH.spring * f.ox - PUSH.damping * f.vx) * dt;
+      f.vy += (ay - PUSH.spring * f.oy - PUSH.damping * f.vy) * dt;
+      f.vr += (ar - PUSH.springR * f.r - PUSH.dampingR * f.vr) * dt;
+      f.ox += f.vx * dt; f.oy += f.vy * dt; f.r = clamp(f.r + f.vr * dt, -75, 75);
+      let far = Math.hypot(f.ox, f.oy), limit = W * 0.11 + 30;
+      if (far > limit) { f.ox *= limit / far; f.oy *= limit / far; }
+      if (far > 0.25 || Math.abs(f.r) > 0.15 || Math.abs(f.vx) + Math.abs(f.vy) > 4 || Math.abs(f.vr) > 2) moving = true;
+      else { f.ox = f.oy = f.r = f.vx = f.vy = f.vr = 0; far = 0; }   /* at rest: truly zero, so the style clears */
+      /* a mirrored piece (see `flip`) has a mirrored inside, so its push is mirrored back */
+      f.inner.style.transform = far > 0.01 || Math.abs(f.r) > 0.01
+        ? `translate3d(${(f.ox * f.flip).toFixed(2)}px,${f.oy.toFixed(2)}px,0) rotate(${(f.r * f.flip).toFixed(2)}deg)` : '';
+    }
+    ptr.vx *= 0.82; ptr.vy *= 0.82;   // the pointer's speed dies away unless it keeps moving
+    if (!moving) { pushing = false; gsap.ticker.remove(pushFruit); }
+  }
+
+  /* The colour flood: the new backdrop spreads out from the glass as a wobbling blob of
+     liquid, with a pale band of foam running ahead of it. Both are clip-path polygons. */
+  const BLOB_POINTS = 72;
+  function blob(x, y, r, t, band) {
+    let points = '';
+    for (let i = 0; i < BLOB_POINTS; i++) {
+      const a = i / BLOB_POINTS * Math.PI * 2;
+      const wobble = 1 + 0.05 * Math.sin(a * 3 + t * 2.2) + 0.03 * Math.sin(a * 5 - t * 3.1 + 1.7) + 0.014 * Math.sin(a * 9 + t * 4.6 + 4);
+      const rr = r * wobble + band * (0.6 + 0.4 * Math.sin(a * 4 + t * 3 + 2));
+      points += `${i ? ',' : ''}${(x + Math.cos(a) * rr).toFixed(1)}px ${(y + Math.sin(a) * rr).toFixed(1)}px`;
+    }
+    return `polygon(${points})`;
+  }
+  const clip = (el, shape) => { el.style.webkitClipPath = el.style.clipPath = shape; };
+  /* where the glass stands, in hero pixels (its layout box: the transitions only transform it) */
+  function glassBox() {
+    const box = $('.hero__jar'), h = box.offsetHeight;
+    return { x: hero.clientWidth / 2, top: box.offsetTop, w: h * 647 / 1116, h };
+  }
+
+  /* Splash drops: as the new shake lands it throws off a burst of drops in its own colour.
+     Each one flies a simple arc under gravity, stretched along its path, and fades as it falls. */
+  function splash() {
+    const H = hero.clientHeight, unit = Math.max(0.6, H / 1080), gravity = 2300 * unit, glass = glassBox();
+    const cream = D.flavours[S[cur].flavour].cream, light = mix(cream, '#ffffff', 0.62), dark = mix(cream, '#000000', 0.28);
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const set = Array.from({ length: hero.clientWidth < 760 ? 10 : 18 }, (_, k) => {
+      const side = k % 2 ? 1 : -1, back = k % 5 < 2, lean = rnd(0.2, 1.2), speed = rnd(520, 1150) * unit;
+      const size = rnd(7, 19) * unit * (back ? 0.8 : 1);
+      const el = document.createElement('i');
+      el.className = 'drop' + (back ? ' is-back' : '');
+      el.style.cssText = `width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;margin:${(-size / 2).toFixed(1)}px;background:radial-gradient(circle at 34% 30%,${light} 0 12%,${cream} 48%,${dark} 100%)`;
+      drops.appendChild(el);
+      return { el, x: glass.x + side * rnd(0.04, 0.24) * glass.w, y: glass.top + rnd(0.14, 0.42) * glass.h, vx: side * speed * Math.sin(lean), vy: -speed * Math.cos(lean), life: rnd(0.75, 1.15), wait: rnd(0, 0.09) };
+    });
+    const clock = { t: 0 };
+    gsap.to(clock, {
+      t: 1.3, duration: 1.3, ease: 'none',
+      onUpdate() {
+        for (const d of set) {
+          const t = clock.t - d.wait, age = t / d.life;
+          if (t <= 0) continue;
+          if (age >= 1) { d.el.style.opacity = 0; continue; }
+          const vy = d.vy + gravity * t, stretch = 1 + Math.min(0.9, Math.hypot(d.vx, vy) / (1500 * unit));
+          d.el.style.opacity = age < 0.65 ? 1 : (1 - age) / 0.35;
+          d.el.style.transform = `translate3d(${(d.x + d.vx * t).toFixed(1)}px,${(d.y + d.vy * t + gravity * t * t / 2).toFixed(1)}px,0) rotate(${(Math.atan2(vy, d.vx) * 180 / Math.PI - 90).toFixed(1)}deg) scale(${(1 / Math.sqrt(stretch)).toFixed(3)},${stretch.toFixed(3)})`;
+        }
+      },
+      onComplete() { set.forEach(d => d.el.remove()); }
+    });
+  }
+
   const FADE = '#tags, .hcard__body, .hcard__thumb, #ring-text, #ring-value, .ring__icon';
   function go(dir, target) {
     if (busy) return;
@@ -219,9 +338,11 @@
     cur = next;
     loadSlide(cur);
     const swapJar = () => jars.forEach((j, i) => j.classList.toggle('is-active', i === cur));
+    /* the new backdrop is fully in: make it the active scene and hand it to the moving liquid */
     const settle = () => {
-      scenes.forEach((sc, i) => { sc.classList.toggle('is-active', i === cur); if (gsap) gsap.set(sc, { clearProps: 'opacity,zIndex' }); });
-      busy = false;
+      scenes.forEach((sc, i) => { sc.classList.toggle('is-active', i === cur); sc.style.opacity = sc.style.zIndex = ''; clip(sc, ''); });
+      foam.style.visibility = '';
+      if (liquid) liquid.show(cur);
     };
     if (!motion) {
       words.forEach((w, i) => w.classList.toggle('is-active', i === cur));
@@ -231,9 +352,22 @@
     busy = true;
     const leaving = $$('#fruit img');
     gsap.killTweensOf(leaving);
-    gsap.set(scenes[cur], { zIndex: 2, opacity: 0 });
-    gsap.timeline({ onComplete: settle })
-      .to(scenes[cur], { opacity: 1, duration: 0.85, ease: 'power1.inOut' }, 0)
+
+    const glass = glassBox(), fx = glass.x, fy = glass.top + glass.h * 0.56;
+    const reach = Math.hypot(Math.max(fx, hero.clientWidth - fx), Math.max(fy, hero.clientHeight - fy)) * 1.12;   // past the far corner, wobble included
+    const flood = { p: 0 };
+    const tl = gsap.timeline({ onComplete: () => { busy = false; } });
+    const paintFlood = () => {
+      const r = reach * flood.p, t = tl.time();
+      clip(scenes[cur], blob(fx, fy, r, t, 0));
+      clip(foam, blob(fx, fy, r, t, reach * 0.024 * Math.min(1, flood.p * 8)));
+    };
+    foam.style.background = mix(D.flavours[S[cur].flavour].cream, '#ffffff', 0.6);
+    paintFlood();
+    scenes[cur].style.opacity = 1; scenes[cur].style.zIndex = 3;
+    foam.style.visibility = 'visible';
+
+    tl.to(flood, { p: 1, duration: 1, ease: 'power2.out', onUpdate: paintFlood, onComplete: settle }, 0.05)
       .to('#jar-move', { y: 70, scale: 0.82, autoAlpha: 0, duration: 0.35, ease: 'power2.in' }, 0)
       .to(leaving, { y: -180, opacity: 0, rotation: '+=50', duration: 0.45, stagger: 0.04, ease: 'power2.in' }, 0)
       .to(words[old], { xPercent: -110 * dir, duration: 0.85, ease: 'power3.inOut' }, 0)
@@ -242,7 +376,10 @@
       .call(() => { swapJar(); fill(cur, true); }, null, 0.5)
       .to(FADE, { opacity: 1, duration: 0.4 }, 0.55)
       .to('#jar-move', { y: 0, scale: 1, autoAlpha: 1, duration: 0.8, ease: 'back.out(1.8)' }, 0.55)
-      .set(words[old], { autoAlpha: 0 }, 0.9);
+      .call(splash, null, 0.8)
+      .set(words[old], { autoAlpha: 0 }, 0.9)
+      /* the glass drops back from its overshoot: a ripple runs out across the pool from its foot */
+      .call(() => { if (liquid) liquid.ripple(glass.x, glass.top + glass.h * 0.97, 1); }, null, 1.12);
   }
 
   /* autoplay: only while the hero is actually being looked at, and only until
@@ -262,6 +399,15 @@
       gsap.set(words[0], { autoAlpha: 1, xPercent: 0 });
       gsap.to('#jar-float', { y: -14, rotation: 2, duration: 2.8, yoyo: true, repeat: -1, ease: 'sine.inOut' });
       if (canHover) hero.addEventListener('pointermove', e => { px = e.clientX / innerWidth - 0.5; py = e.clientY / innerHeight - 0.5; parallax(); }, { passive: true });
+      /* pushing the fruit: a mouse as it moves, a finger as it touches down and drags */
+      const lift = () => { ptr.on = false; };
+      hero.addEventListener('pointermove', e => { if (e.pointerType !== 'touch') nudge(e.clientX, e.clientY, false); }, { passive: true });
+      hero.addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') nudge(e.clientX, e.clientY, true); }, { passive: true });
+      hero.addEventListener('pointerleave', lift);
+      hero.addEventListener('touchstart', e => nudge(e.touches[0].clientX, e.touches[0].clientY, true), { passive: true });
+      hero.addEventListener('touchmove', e => nudge(e.touches[0].clientX, e.touches[0].clientY, false), { passive: true });
+      hero.addEventListener('touchend', lift, { passive: true });
+      hero.addEventListener('touchcancel', lift, { passive: true });
     }
     loadSlide(0);
     fill(0, false);
@@ -296,6 +442,7 @@
     if ('IntersectionObserver' in window) new IntersectionObserver(es => {
       heroSeen = es[0].isIntersecting;
       if (ringTween) ringTween.paused(!heroSeen);
+      if (liquid) liquid.setVisible(heroSeen);
     }, { threshold: 0.35 }).observe(hero);
     timer = setInterval(() => { if (canAutoplay()) go(1); }, 6000);
   }
@@ -338,7 +485,7 @@
   }
 
   /* ───────── 5. Product page ───────── */
-  const view = { id: null, pack: 0, sub: false, qty: 1 };
+  const view = { id: null, pack: 0, sub: false, qty: 1, shot: 0 };
   const linePrice = (p, pack, sub) => {
     const k = D.shop.packs[pack];
     return Math.round(p.price * k.size * (1 - k.off)) * (sub ? 1 - D.shop.subscribeRate : 1);
@@ -373,12 +520,23 @@
       <details><summary>Ingredients</summary><p>Real fruit, milk and cream base (placeholder list).</p></details>
       <details><summary>Allergens</summary><p>Contains milk (placeholder). Confirm before launch.</p></details>`;
   }
+  /* The two photos are cut to the same frame, glass on glass, so one fades into the other. */
   function renderProduct(id) {
     const p = productById(id) || D.products[0];
-    Object.assign(view, { id: p.id, pack: 0, sub: false, qty: 1 });
-    $('#product-view').innerHTML = `<div class="gallery" style="--tile:${tileOf(p)}"><img src="${src.shake(p.flavour)}" alt="${esc(p.name)} milkshake" width="647" height="1116"></div><div id="product-info"></div>`;
+    Object.assign(view, { id: p.id, pack: 0, sub: false, qty: 1, shot: 0 });
+    const shots = [{ url: src.shake(p.flavour), thumb: src.shake(p.flavour), alt: `${p.name} milkshake`, label: 'Show the splash photo' }];
+    if (D.flavours[p.flavour].served) shots.push({ url: src.served(p.flavour), thumb: src.thumb(p.flavour), alt: `${p.name}, served with whipped cream and a straw`, label: 'Show the shake as it is served' });
+    $('#product-view').innerHTML = `<div class="gallery" style="--tile:${tileOf(p)}">
+        <div class="gallery__stage">${shots.map((sh, i) => `<img${i ? '' : ' class="is-active"'} src="${sh.url}" alt="${esc(sh.alt)}" width="647" height="1116"${i ? ' aria-hidden="true"' : ''}>`).join('')}</div>
+        ${shots.length > 1 ? `<div class="gallery__thumbs" role="group" aria-label="Photos">${shots.map((sh, i) => `<button type="button" data-act="shot" data-shot="${i}" aria-pressed="${!i}" aria-label="${sh.label}"><img src="${sh.thumb}" alt="" width="186" height="320"></button>`).join('')}</div>` : ''}
+      </div><div id="product-info"></div>`;
     renderProductInfo();
     return p;
+  }
+  function showShot(i) {
+    view.shot = i;
+    $$('.gallery__stage img').forEach((img, k) => { img.classList.toggle('is-active', k === i); img.setAttribute('aria-hidden', String(k !== i)); });
+    $$('.gallery__thumbs button').forEach((b, k) => b.setAttribute('aria-pressed', String(k === i)));
   }
 
   /* ───────── 6. Cart ───────── */
@@ -412,13 +570,48 @@
     count.classList.remove('is-bump'); void count.offsetWidth; count.classList.add('is-bump');
   }
 
-  function renderCart() {
-    const { freeShippingFrom: FREE, shippingFee, discountCode, discountRate } = D.shop;
-    const units = cart.lines.reduce((n, l) => n + l.qty, 0);
+  function totals() {
     const subtotal = cart.lines.reduce((n, l) => n + lineUnit(l) * l.qty, 0);
-    const discount = cart.code ? subtotal * discountRate : 0;
-    const total = subtotal - discount;
-    const freeShip = total >= FREE || !cart.lines.length;
+    const discount = cart.code ? subtotal * D.shop.discountRate : 0;
+    const total = subtotal - discount;                                    // what counts towards free shipping
+    const freeShip = total >= D.shop.freeShippingFrom || !cart.lines.length;
+    return { subtotal, discount, total, freeShip, due: total + (freeShip ? 0 : D.shop.shippingFee) };
+  }
+
+  /* Ordering goes through WhatsApp: the cart is written out as a message to the shop's number.
+     Nothing is sent until the customer presses send in WhatsApp. */
+  const waNumber = String(D.shop.whatsapp || '').replace(/\D/g, '').replace(/^0+/, '');
+  function orderMessage() {
+    const t = totals();
+    return [
+      `Hi ${D.brand}! I’d like to order:`,
+      '',
+      ...cart.lines.map(l => `• ${l.qty} × ${lineName(l)} — ${money(lineUnit(l) * l.qty)}`),
+      '',
+      `Subtotal: ${money(t.subtotal)}`,
+      ...(cart.code ? [`${D.shop.discountCode} discount: −${money(t.discount)}`] : []),
+      `Shipping: ${t.freeShip ? 'Free' : money(D.shop.shippingFee)}`,
+      `*Total: ${money(t.due)}*`,
+      '',
+      'My name: ',
+      'Deliver to: '
+    ].join('\n');
+  }
+  const orderLink = () => `https://wa.me/${waNumber}?text=${encodeURIComponent(orderMessage())}`;
+  /* opened as a real link, which browsers (and the in-app browsers of social apps) do not block */
+  function openLink(url) {
+    const a = document.createElement('a');
+    a.href = url; a.target = '_blank'; a.rel = 'noopener';
+    a.hidden = true;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function renderCart() {
+    const { freeShippingFrom: FREE, shippingFee, discountCode } = D.shop;
+    const units = cart.lines.reduce((n, l) => n + l.qty, 0);
+    const { subtotal, discount, total, freeShip, due } = totals();
 
     $('#cart-count').textContent = units;
     $('#cart-count').hidden = !units;
@@ -440,8 +633,9 @@
     $('#cart-totals').innerHTML = `<div class="total"><span>Subtotal</span><span>${money(subtotal)}</span></div>
       ${cart.code ? `<div class="total"><span>${esc(discountCode)} <button class="link" type="button" data-act="code-remove">remove</button></span><span>−${money(discount)}</span></div>` : ''}
       <div class="total"><span>Shipping</span><span>${freeShip ? 'Free' : money(shippingFee)}</span></div>
-      <div class="total total--grand"><span>Total</span><span>${money(total + (freeShip ? 0 : shippingFee))}</span></div>`;
-    $('#checkout-note').textContent = note.checkout;
+      <div class="total total--grand"><span>Total</span><span>${money(due)}</span></div>`;
+    /* until the shop's number is filled in (data.js), say so: WhatsApp will ask for a contact */
+    $('#checkout-note').textContent = note.checkout || (!waNumber && cart.lines.length ? 'Demo: no shop number is set yet, so WhatsApp will ask who to send your order to.' : '');
     $('#checkout').disabled = !cart.lines.length;
   }
 
@@ -486,7 +680,13 @@
     'line-remove': el => { cart.lines.splice(+el.dataset.i, 1); save(); renderCart(); $('#cart-close').focus(); },
     'code-remove': () => { cart.code = false; note.code = ''; note.codeTone = ''; save(); renderCart(); },
     'close-cart': closeCart,
-    checkout: () => { note.checkout = 'Checkout isn’t connected yet. This is a demo store.'; renderCart(); }
+    shot: el => showShot(+el.dataset.shot),
+    checkout: () => {
+      if (!cart.lines.length) return;
+      openLink(orderLink());
+      note.checkout = waNumber ? 'WhatsApp is opening with your order. Press send there to place it.' : 'WhatsApp is opening with your order. Choose a chat, then press send.';
+      renderCart();
+    }
   };
 
   /* ───────── 7. Router & header ───────── */
@@ -728,11 +928,24 @@
   $('#code-hint').textContent = D.shop.discountCode;
   $('#code-input').placeholder = `Discount code (try ${D.shop.discountCode})`;
 
+  /* The moving liquid is the one part that loads late on purpose: the hero is complete
+     without it, and the photograph simply stays still if it cannot run. */
+  function initLiquid() {
+    if (!motion) return;
+    loadScript('assets/js/liquid.js').then(() => {
+      liquid = window.whirlLiquid && window.whirlLiquid.start($('#liquid'), () => { liquid = null; });
+      if (!liquid) return;
+      S.forEach((s, i) => liquid.add(i, [src.scene(s.flavour), src.flow(s.flavour)]));
+      liquid.show(cur);
+    }).catch(() => { liquid = null; });
+  }
+
   initHome();
   initShop();
   initHero();
   initNav();
   initPlay();
+  initLiquid();
   renderCart();
   route();
 

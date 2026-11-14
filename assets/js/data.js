@@ -19,20 +19,29 @@ window.WHIRL = {
       { label: '1 shake', size: 1, off: 0 },
       { label: '4-pack',  size: 4, off: 0.07 },
       { label: '8-pack',  size: 8, off: 0.12 }
-    ]
+    ],
+
+    /* Orders are sent as a WhatsApp message. Put the shop's number here in full
+     * international format, digits only: 27821234567 for 082 123 4567 in South Africa.
+     * While it is empty, WhatsApp asks the customer who to send the order to.       */
+    whatsapp: ''
   },
 
   /* One entry per flavour. Images are looked up by key:
-   *   assets/img/shakes/<key>.webp   and   assets/img/scenes/<key>.webp
-   * (both are produced by tools/build_assets.py).
-   *   ink  = headline tint on the hero      deep = dark shade of the flavour
-   *   tile = card background in the shop    soft = light section tint          */
+   *   assets/img/shakes/<key>.webp        the glass with its splash (hero, cards)
+   *   assets/img/scenes/<key>.webp        the hero backdrop
+   *   assets/img/scenes/<key>-flow.webp   where the liquid in that backdrop moves
+   *   assets/img/served/<key>.webp        the shake as it is served (set served: true)
+   * (all of them are produced by tools/build_assets.py).
+   *   ink   = headline tint on the hero     deep = dark shade of the flavour
+   *   tile  = card background in the shop   soft = light section tint
+   *   cream = colour of the shake itself, used for the splash drops                  */
   flavours: {
-    grape:      { label: 'Grape',      ink: '#fbd9ff', deep: '#35123f', tile: '#9a5cc4', soft: '#f3e3ff' },
-    orange:     { label: 'Orange',     ink: '#fff6d6', deep: '#7a3303', tile: '#f59a2f', soft: '#ffecd2' },
-    kiwi:       { label: 'Kiwi',       ink: '#f0ffd2', deep: '#2d400d', tile: '#7fae3e', soft: '#eaf5d3' },
-    strawberry: { label: 'Strawberry', ink: '#fff0ea', deep: '#74202c', tile: '#e0687a', soft: '#ffe3e6' },
-    chocolate:  { label: 'Chocolate',  ink: '#fff1de', deep: '#1f0e08', tile: '#7a4a36', soft: '#f1e2d6' }
+    grape:      { label: 'Grape',      ink: '#fbd9ff', deep: '#35123f', tile: '#9a5cc4', soft: '#f3e3ff', cream: '#b37e9d', served: true },
+    orange:     { label: 'Orange',     ink: '#fff6d6', deep: '#7a3303', tile: '#f59a2f', soft: '#ffecd2', cream: '#eda45b', served: true },
+    kiwi:       { label: 'Kiwi',       ink: '#f0ffd2', deep: '#2d400d', tile: '#7fae3e', soft: '#eaf5d3', cream: '#b3af5d', served: true },
+    strawberry: { label: 'Strawberry', ink: '#fff0ea', deep: '#74202c', tile: '#e0687a', soft: '#ffe3e6', cream: '#c86f66', served: true },
+    chocolate:  { label: 'Chocolate',  ink: '#fff1de', deep: '#1f0e08', tile: '#7a4a36', soft: '#f1e2d6', cream: '#85543e', served: true }
   },
 
   /* Hero carousel. `fruit` rows are [image, x%, y%, size(vw), rotation(deg), depth, blur(px), flip?]
@@ -69,7 +78,7 @@ window.WHIRL = {
       ]
     },
     {
-      word: 'Kiwiful', product: 'ki', flavour: 'kiwi',
+      word: 'Kiwitastic', product: 'ki', flavour: 'kiwi',
       tags: ['Exotic', 'Tangy', 'Smooth'], tagsSide: 'right',
       text: 'Smooth, refreshing and just a little tangy.',
       badge: { label: 'Real fruit', value: '100%' },

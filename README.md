@@ -2,7 +2,7 @@
 
 A three-page milkshake storefront: an animated landing page, a shop and a product page, with a cart drawer. It is a static site with no build step and no external requests: fonts, scripts and images are all in this repository.
 
-> Whirl is the brand. The product names, prices, copy, nutrition values and contact details are **placeholders**. Checkout is a demo message; no payment provider is connected. See [Before you launch](#before-you-launch).
+> Whirl is the brand. The product names, prices, copy, nutrition values and contact details are **placeholders**. Ordering opens WhatsApp with the order written out; no payment provider is connected. See [Before you launch](#before-you-launch).
 
 ## Run it
 
@@ -31,6 +31,11 @@ Behaviour worth knowing:
 - The hero changes flavour by itself every 6 seconds. It pauses while the pointer is over a control, while the hero is off screen and while the cart is open, and it stops for good once the visitor uses the arrows or the arrow keys.
 - With "reduce motion" switched on in the operating system there is no autoplay, parallax, falling fruit or page transition.
 - Below 860 px the navigation becomes a menu button; below 760 px the hero is rearranged for phones.
+- Changing flavour is a small event: the new backdrop spreads out of the glass as a wobbling blob with a foam edge, the shake that lands throws drops in its own colour, and the headline slides out while the next one slides in.
+- The fruit on the hero is pushable: it drifts away and spins when the mouse or a finger comes near, and floats back afterwards. It keeps bobbing either way.
+- The liquid in each backdrop moves on its own (`assets/js/liquid.js`, a small WebGL layer drawn over the photograph). It loads after the page is up, pauses while the hero is off screen, and where WebGL is missing — or with reduced motion on — the photograph simply stays still.
+- Every shake has a second photograph, served with cream and a straw: the little card on the hero shows it, and the product page has both pictures to flip between.
+- Checkout writes the cart out as a WhatsApp message to the shop's number (`shop.whatsapp` in `assets/js/data.js`). Nothing is sent until the visitor presses send in WhatsApp.
 - A picture that fails to load is requested again, twice at most, and hidden if it still fails, so visitors never see a broken-picture icon.
 
 ## Files
@@ -41,9 +46,11 @@ assets/
   css/styles.css        all styles, in numbered sections
   js/data.js            content: brand, flavours, hero slides, products, shop rules
   js/app.js             behaviour, in numbered sections
+  js/liquid.js          the moving liquid on the hero (loaded after the page, optional)
   fonts/                Suez One (headlines) and Outfit (text)
   img/shakes/           one glass per flavour (transparent)
-  img/scenes/           one hero backdrop per flavour
+  img/scenes/           one hero backdrop per flavour, plus a <-flow.webp mask that marks the liquid in it
+  img/served/           each shake served with cream and a straw, plus small thumbs
   img/fruit/            fruit and chocolate cut-outs
   img/og.jpg            preview image for links shared on social media
   vendor/               GSAP (animation), Matter.js (falling fruit, loaded on demand)
@@ -57,7 +64,8 @@ Almost everything you are likely to edit is in `assets/js/data.js`:
 
 - `brand` is the name shown in the page titles.
 - `shop` holds the currency, the free-shipping threshold, the shipping fee, the discount code and the pack sizes.
-- `flavours` holds the colours of each flavour.
+- `flavours` holds the colours of each flavour, the colour of the shake itself (`cream`, used for the splash drops) and whether there is a served photo (`served`).
+- `shop.whatsapp` is the number orders are sent to: full international format, digits only (`27821234567`). While it is empty, WhatsApp asks the visitor who to send the order to.
 - `slides` is the hero: the headline word, the three tags and which side they sit on, the short description, the badge text and the floating fruit.
 - `products` is the catalogue: `id`, `name`, `price`, optional `was` (crossed-out price), `cat` (`Singles`, `Bundles` or `Subscriptions`), optional `badge`.
 
@@ -93,21 +101,24 @@ The masters are in `tools/masters/`:
 
 - `glass-<flavour>.webp` is that flavour's shake in its glass. All five show the same glass from the same angle, so the slides line up. They are used as they are.
 - `scene-<flavour>.webp` is that flavour's backdrop. The script nudges its overall tone to the flavour's `scene` colour, which keeps the headline readable.
+- `served-<flavour>.webp` is the same glass served with cream, garnish and a straw, cut out the same way so it lines up with the splashing glass.
 - `glass.webp` and `scene.webp` are generic strawberry-pink masters. Strawberry uses this backdrop, and a new flavour without pictures of its own gets both, recoloured.
+
+The script also writes the `<flavour>-flow.webp` masks in `assets/img/scenes/`: it finds the liquid in each backdrop (by colour and texture, keeping only the pool that touches the bottom) and stores where the moving-liquid layer is allowed to draw.
 
 ## Before you launch
 
 - Check the product names, prices and descriptions, and replace the made-up ratings and review counts.
 - Replace the nutrition, ingredients and allergen text on the product page with real information.
 - Replace `hello@example.com` and the opening hours in the footer.
-- Connect a real checkout. The Checkout button only shows a message (`checkout` in `assets/js/app.js`).
+- Put the shop's real WhatsApp number in `shop.whatsapp` (`assets/js/data.js`); until then the cart says WhatsApp will ask who to send the order to. Taking card payments needs an account with a payment provider — the cart totals are already worked out for it.
 - Prices and discounts are worked out in the browser; a real shop must work them out again on the server.
 - Set `og:image` in `index.html` to a full address (`https://your-domain/assets/img/og.jpg`); link previews do not follow relative paths.
 - Consider replacing the generated artwork with photographs of the real product.
 
 ## Credits and licences
 
-- **Images.** The glasses, the backdrops, the fruit and the chocolate pieces were made with an AI image generator and then cut out and colour-matched with the scripts in `tools/`. None of them shows a real product.
+- **Images.** The glasses, the backdrops, the fruit, the chocolate pieces and the served shots were made with an AI image generator and then cut out and colour-matched with the scripts in `tools/`. None of them shows a real product.
 - **Fonts.** [Suez One](https://fonts.google.com/specimen/Suez+One) and [Outfit](https://fonts.google.com/specimen/Outfit), both under the SIL Open Font License 1.1, taken from the Fontsource packages (version 5.3.0). The licence texts are in `assets/fonts/`.
 - **GSAP 3.15.1.** Subject to GreenSock's [standard "no charge" licence](https://gsap.com/standard-license). Read it before commercial use.
 - **Matter.js 0.20.0.** MIT licence; the text is in `assets/vendor/`.

@@ -6,6 +6,8 @@
 
 Inputs  (tools/masters/)
     glass-<flavour>.webp   the shake in its glass, cut out (RGBA); used as photographed
+    served-<flavour>.webp  optional second photo: the same glass served with cream and a straw,
+                           cut out with the same crop as the glass so the two line up
     scene-<flavour>.webp   the backdrop; its overall tone is nudged to the flavour's scene colour
     glass.webp, scene.webp generic strawberry-pink masters: a flavour without a picture of
                            its own gets these, recoloured
@@ -13,11 +15,13 @@ Inputs  (tools/masters/)
 Outputs (assets/img/)
     shakes/<flavour>.webp   the glass                    (transparent background)
     scenes/<flavour>.webp   the backdrop
+    served/<flavour>.webp   the served photo, plus <flavour>-thumb.webp for small spots
     og.jpg                  1200x630 social share image  (first flavour in the list)
 
 To add a flavour: add one line to FLAVOURS below, optionally add its own masters
 (see tools/cutout.py for cutting out a glass), run this script, then add the
-matching entries in assets/js/data.js.
+matching entries in assets/js/data.js (set `served: true` there only if the
+flavour has a served photo).
 """
 import os
 import sys
@@ -36,13 +40,14 @@ GLASS_SRC = '#c57671'   # median colour of the shake in masters/glass.webp
 SCENE_SRC = '#e7999b'   # median colour of masters/scene.webp
 GLASS_CANVAS = 610      # every glass is centred on a canvas this wide, so all flavours line up
 GLASS_STRETCH = 1.06    # the glass is a touch slim; widen it slightly
+THUMB_HEIGHT = 320      # served/<flavour>-thumb.webp
 
 # flavour: scene = mid tone of the backdrop, shake = mid tone of the drink (generic master only);
 # ink and word are the headline colour and text used on og.jpg (first flavour only)
 FLAVOURS = {
     'grape':      dict(scene='#a968b6', shake='#ad79cc', ink='#fbd9ff', word='Grapeline'),
     'orange':     dict(scene='#ee9438', shake='#f4ad58', ink='#fff6d6', word='Orangeous'),
-    'kiwi':       dict(scene='#86a23b', shake='#a8c260', ink='#f0ffd2', word='Kiwiful'),
+    'kiwi':       dict(scene='#86a23b', shake='#a8c260', ink='#f0ffd2', word='Kiwitastic'),
     'strawberry': dict(scene='#e5868a', shake='#ea8c97', ink='#fff0ea', word='Berrylove'),
     'chocolate':  dict(scene='#6a3f29', shake='#86583f', ink='#fff1de', word='Cocoloco'),
 }
@@ -66,16 +71,26 @@ def median_hex(rgb):
     return f'#{r:02x}{g:02x}{b:02x}'
 
 
-def glass_image(name, f, generic):
-    own = load(f'glass-{name}.webp')
-    if own is None:
-        own = np.dstack([recolor(generic[..., :3], GLASS_SRC, f['shake']), generic[..., 3]])
-    img = to_img(own)
-    if img.width < GLASS_CANVAS:   # centre a narrower master on the common canvas
+def on_canvas(img):
+    """Centre a cut-out on the common canvas and widen it like every other glass."""
+    if img.width < GLASS_CANVAS:
         wide = Image.new('RGBA', (GLASS_CANVAS, img.height), (0, 0, 0, 0))
         wide.paste(img, ((GLASS_CANVAS - img.width) // 2, 0))
         img = wide
     return img.resize((round(img.width * GLASS_STRETCH), img.height), Image.LANCZOS)
+
+
+def glass_image(name, f, generic):
+    own = load(f'glass-{name}.webp')
+    if own is None:
+        own = np.dstack([recolor(generic[..., :3], GLASS_SRC, f['shake']), generic[..., 3]])
+    return on_canvas(to_img(own))
+
+
+def served_image(name):
+    """The served photo, framed exactly like the glass; None if the flavour has none."""
+    own = load(f'served-{name}.webp')
+    return None if own is None else on_canvas(to_img(own))
 
 
 def scene_image(name, f, generic):
@@ -89,7 +104,7 @@ def scene_image(name, f, generic):
 def build():
     glass = load('glass.webp')
     scene = load('scene.webp')[..., :3]
-    for sub in ('shakes', 'scenes'):
+    for sub in ('shakes', 'scenes', 'served'):
         os.makedirs(os.path.join(OUT, sub), exist_ok=True)
 
     made = {}
@@ -99,7 +114,12 @@ def build():
         si = scene_image(name, f, scene)
         si.save(os.path.join(OUT, 'scenes', name + '.webp'), 'WEBP', quality=82, method=6)
         made[name] = (si, gi)
-        print(f'{name:11s} shake {gi.size}  scene {si.size}')
+        sv = served_image(name)
+        if sv is not None:
+            sv.save(os.path.join(OUT, 'served', name + '.webp'), 'WEBP', quality=88, method=6, alpha_quality=92)
+            small = sv.resize((round(sv.width * THUMB_HEIGHT / sv.height), THUMB_HEIGHT), Image.LANCZOS)
+            small.save(os.path.join(OUT, 'served', name + '-thumb.webp'), 'WEBP', quality=86, method=6, alpha_quality=92)
+        print(f'{name:11s} shake {gi.size}  scene {si.size}  served {sv.size if sv is not None else "none"}')
 
     first = next(iter(FLAVOURS))   # the share image shows the first flavour in the list
     og(made[first][0], made[first][1], FLAVOURS[first])

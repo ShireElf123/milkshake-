@@ -10,6 +10,10 @@
     python3 tools/cutout.py glass.png tools/masters/glass-mango.webp --key g --glassy \
         --crop 119,73,729,1189 --size 0 --lossless
 
+    # the same glass served with cream and a straw -> second product photo (same crop, so both line up)
+    python3 tools/cutout.py served.png tools/masters/served-mango.webp --key g --glassy \
+        --crop 119,73,729,1189 --size 0 --lossless
+
     # a picture that is already transparent: just trim, resize and adjust the tone
     python3 tools/cutout.py piece.png assets/img/fruit/piece.webp --gamma 1.2 --contrast 1.1
 
@@ -36,6 +40,7 @@ def main():
     ap.add_argument('--spill', type=float, default=1.0, help='raise to ~1.15 to keep blue/purple tones in the subject (grapes)')
     ap.add_argument('--spill-tint', type=float, help='stricter limit for coloured areas, e.g. 0.75, to remove a backdrop tint that shows through liquid or glass')
     ap.add_argument('--crop', help='x0,y0,x1,y1: cut this box out of the source instead of trimming to the subject')
+    ap.add_argument('--erase', action='append', default=[], metavar='X0,Y0,X1,Y1', help='clear this box of the source (a stray shadow on the backdrop, say); can be given more than once')
     ap.add_argument('--lossless', action='store_true', help='save without compression loss (for masters)')
     ap.add_argument('--size', type=int, default=560, help='longest side of the result in pixels; 0 keeps the size')
     ap.add_argument('--gamma', type=float, default=1.0, help='above 1 darkens the mid tones')
@@ -50,6 +55,14 @@ def main():
     else:
         img = Image.open(args.src).convert('RGBA')
         box = img.getbbox()
+    if args.erase:
+        px = np.array(img)
+        for spec in args.erase:
+            x0, y0, x1, y1 = (int(v) for v in spec.split(','))
+            px[y0:y1, x0:x1, 3] = 0
+        img = Image.fromarray(px, 'RGBA')
+        if not args.crop:
+            box = img.getbbox()
     img = img.crop(tuple(int(v) for v in args.crop.split(',')) if args.crop else box)
 
     if args.gamma != 1.0 or args.contrast != 1.0:
