@@ -67,7 +67,7 @@ window.WHIRL = {
    * A missing or broken splash file falls back to the twirl picture. */
   slides: [
     {
-      word: 'Grapeline', product: 'gr', flavour: 'grape',
+      look: 'twirl', word: 'Grapeline', product: 'gr', flavour: 'grape',
       tags: ['Bold', 'Juicy', 'Vibrant'], tagsSide: 'left',
       text: 'Juicy grapes swirled into a silky, thick shake.',
       badge: { label: 'Real fruit', value: '100%' },
@@ -81,7 +81,7 @@ window.WHIRL = {
       ]
     },
     {
-      word: 'Orangeous', product: 'or', flavour: 'orange',
+      look: 'twirl', word: 'Orangeous', product: 'or', flavour: 'orange',
       tags: ['Citrus', 'Bright', 'Energizing'], tagsSide: 'left',
       text: 'A creamy shake with a bright orange twist.',
       badge: { label: 'Real fruit', value: '100%' },
@@ -95,7 +95,7 @@ window.WHIRL = {
       ]
     },
     {
-      word: 'Kiwitastic', product: 'ki', flavour: 'kiwi',
+      look: 'twirl', word: 'Kiwitastic', product: 'ki', flavour: 'kiwi',
       tags: ['Exotic', 'Tangy', 'Smooth'], tagsSide: 'right',
       text: 'Smooth, refreshing and just a little tangy.',
       badge: { label: 'Real fruit', value: '100%' },
@@ -109,7 +109,7 @@ window.WHIRL = {
       ]
     },
     {
-      word: 'Berrylove', product: 'st', flavour: 'strawberry',
+      look: 'twirl', word: 'Berrylove', product: 'st', flavour: 'strawberry',
       tags: ['Fresh', 'Sweet', 'Irresistible'], tagsSide: 'right',
       text: 'Fresh strawberries blended into a creamy shake.',
       badge: { label: 'Real fruit', value: '100%' },
@@ -123,7 +123,7 @@ window.WHIRL = {
       ]
     },
     {
-      word: 'Cocoloco', product: 'ch', flavour: 'chocolate',
+      look: 'twirl', word: 'Cocoloco', product: 'ch', flavour: 'chocolate',
       tags: ['Rich', 'Creamy', 'Indulgent'], tagsSide: 'left',
       text: 'Deep chocolate in a rich, creamy blend.',
       badge: { label: 'Natural cocoa', value: '70%' },
