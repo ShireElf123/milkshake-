@@ -60,8 +60,11 @@ window.WHIRL = {
 
   /* Hero carousel. `fruit` rows are [image, x%, y%, size(vw), rotation(deg), depth, blur(px), flip?]
    * — depth drives the mouse parallax (bigger = closer to the camera); pieces with a depth
-   *   of 1 or more float in front of the glass, the rest behind it.
-   * `tagsSide` is the side of the headline the three tags are tucked into.                    */
+   * of 1 or more float in front of the glass, the rest behind it.
+   * `tagsSide` is the side of the headline the three tags are tucked into.
+   * `look` picks the hero's glass picture: 'splash' (the default, a dramatic
+   * splash shot) or 'twirl' (the plain glass the rest of the site shows).
+   * A missing or broken splash file falls back to the twirl picture. */
   slides: [
     {
       word: 'Grapeline', product: 'gr', flavour: 'grape',

@@ -35,6 +35,7 @@ Behaviour worth knowing:
 - The fruit on the hero is pushable: it drifts away and spins when the mouse or a finger comes near, and floats back afterwards. It keeps bobbing either way.
 - The liquid in each backdrop moves on its own (`assets/js/liquid.js`, a small WebGL layer drawn over the photograph). It loads after the page is up, pauses while the hero is off screen, and where WebGL is missing — or with reduced motion on — the photograph simply stays still.
 - Every shake has a second photograph, served with cream and a straw: the little card on the hero shows it, and the product page has both pictures to flip between.
+- The hero shows each flavour's own dramatic splash shot (`<flavour>-splash.webp`); the shop, the product page, the cart and the hero's little card keep the plain twirl glass. A slide can opt out with `look: 'twirl'`, and a splash file that fails to load falls back to the twirl glass, so the hero is never empty.
 - The whole page follows the active flavour, not just the hero: the "why" section retints, the band and small accents pick up the flavour's colours, the shop page returns to the neutral brand theme, and a product page themes itself from its own flavour. All of it comes from `data.js`.
 - Below the hero, a second marquee row drifts the other way as you scroll, and the "why" section is a pinned three-step story: the panel shows the step you are reading (fruit → blend → served), the rail tracks how far through you are, and the 300 ml tile counts up when it scrolls into view.
 - On a flavour change the old glass now sinks small into the pool behind a rising waterline and the new one climbs back out of it, instead of fading away.
@@ -51,7 +52,7 @@ assets/
   js/app.js             behaviour, in numbered sections
   js/liquid.js          the moving liquid on the hero (loaded after the page, optional)
   fonts/                Suez One (headlines) and Outfit (text)
-  img/shakes/           one glass per flavour (transparent)
+  img/shakes/           one glass per flavour (transparent), plus a <-splash.webp splash shot for the hero
   img/scenes/           one hero backdrop per flavour, plus a <-flow.webp mask that marks the liquid in it
   img/served/           each shake served with cream and a straw, plus small thumbs
   img/fruit/            fruit and chocolate cut-outs
@@ -82,9 +83,10 @@ The brand name also appears as text in `index.html` (title, description, logo, f
 1. In `tools/build_assets.py`, add a line to `FLAVOURS` with the backdrop and drink colours.
 2. Optional: give the flavour its own pictures by adding `tools/masters/glass-<key>.webp` and `tools/masters/scene-<key>.webp`. Without them the script recolours the generic strawberry-pink masters.
 3. Run the script (see below). It writes `assets/img/shakes/<key>.webp` and `assets/img/scenes/<key>.webp`.
-4. Add the fruit cut-outs to `assets/img/fruit/`.
-5. In `assets/js/data.js`, add the flavour to `flavours`, a slide to `slides` and a product to `products`.
-6. In `index.html`, add a badge icon to the sprite: `<symbol id="i-<key>" …>`.
+4. Optional: add a hero splash shot at `assets/img/shakes/<key>-splash.webp`, framed exactly like the glass (same foot line and glass size). Without it the hero falls back to the plain glass, or set `look: 'twirl'` on the slide.
+5. Add the fruit cut-outs to `assets/img/fruit/`.
+6. In `assets/js/data.js`, add the flavour to `flavours`, a slide to `slides` and a product to `products`.
+7. In `index.html`, add a badge icon to the sprite: `<symbol id="i-<key>" …>`.
 
 ## Rebuild the images
 

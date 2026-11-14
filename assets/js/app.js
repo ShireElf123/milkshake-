@@ -26,6 +26,9 @@
   const canHover = matchMedia('(hover: hover)').matches;
   const src = {
     shake: flavour => `assets/img/shakes/${flavour}.webp`,
+    /* the hero's own look: a dramatic splash shot of the same glass. Every other
+       picture of a shake (shop, product, cart, story) keeps the plain twirl image. */
+    hero: flavour => `assets/img/shakes/${flavour}-splash.webp`,
     scene: flavour => `assets/img/scenes/${flavour}.webp`,
     flow: flavour => `assets/img/scenes/${flavour}-flow.webp`,
     served: flavour => `assets/img/served/${flavour}.webp`,
@@ -64,6 +67,10 @@
   document.addEventListener('error', e => {
     const img = e.target;
     if (!(img instanceof HTMLImageElement) || !img.getAttribute('src')) return;
+    /* the hero splash shot is optional: if its file is missing or broken the
+       glass falls back to the plain twirl picture straight away, no retries */
+    const fb = img.dataset.fallback;
+    if (fb && bare(img.getAttribute('src')) !== bare(fb)) { img.removeAttribute('data-fallback'); img.src = fb; return; }
     const url = bare(img.getAttribute('src'));
     const tries = img.dataset.failed === url ? +img.dataset.tries : 0;   // counted per picture: some elements are reused
     if (tries >= RETRIES) { img.classList.add('is-missing'); return; }
@@ -104,7 +111,14 @@
 
   $('#scenes').innerHTML = S.map((s, i) => `<div class="scene${i ? '' : ' is-active'}" data-bg="${src.scene(s.flavour)}"></div>`).join('') + '<canvas class="liquid" id="liquid" aria-hidden="true"></canvas><i class="foam" id="foam"></i>';
   $('#words').innerHTML = S.map((s, i) => `<div class="word-wrap"><span class="word${i ? '' : ' is-active'}" style="color:${D.flavours[s.flavour].ink}">${esc(s.word)}<i></i></span></div>`).join('');
-  $('#jar-float').innerHTML = S.map((s, i) => `<img class="${i ? '' : 'is-active'}" data-src="${src.shake(s.flavour)}" alt="" decoding="async">`).join('');
+  /* the hero shows each slide's own look: 'splash' (the default) or 'twirl'.
+     A missing splash file falls back to the twirl picture through data-fallback. */
+  const heroGlass = s => (s.look === 'twirl' ? src.shake : src.hero)(s.flavour);
+  $('#jar-float').innerHTML = S.map((s, i) => {
+    const twirl = src.shake(s.flavour), heroImg = heroGlass(s);
+    const fb = heroImg === twirl ? '' : ` data-fallback="${twirl}"`;
+    return `<img class="${i ? '' : 'is-active'}" data-src="${heroImg}"${fb} alt="" decoding="async">`;
+  }).join('');
   const scenes = $$('.scene', hero), words = $$('.word', hero), jars = $$('#jar-float img');
   const foam = $('#foam'), drops = $('#drops');
 
