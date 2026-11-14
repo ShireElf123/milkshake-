@@ -26,9 +26,10 @@
   const canHover = matchMedia('(hover: hover)').matches;
   const src = {
     shake: flavour => `assets/img/shakes/${flavour}.webp`,
-    /* the hero's own look: a dramatic splash shot of the same glass. Every other
-       picture of a shake (shop, product, cart, story) keeps the plain twirl image. */
-    hero: flavour => `assets/img/shakes/${flavour}-splash.webp`,
+    /* the hero's own looks. Every other picture of a shake (shop, product,
+       cart, story) keeps the plain twirl image. */
+    first: flavour => `assets/img/shakes/${flavour}-first.webp`,   // the original splash-crown glass, the hero default
+    hero: flavour => `assets/img/shakes/${flavour}-splash.webp`,   // the side-splash shot, look: 'splash'
     scene: flavour => `assets/img/scenes/${flavour}.webp`,
     flow: flavour => `assets/img/scenes/${flavour}-flow.webp`,
     served: flavour => `assets/img/served/${flavour}.webp`,
@@ -112,9 +113,10 @@
 
   $('#scenes').innerHTML = S.map((s, i) => `<div class="scene${i ? '' : ' is-active'}" data-bg="${src.scene(s.flavour)}"></div>`).join('') + '<canvas class="liquid" id="liquid" aria-hidden="true"></canvas><i class="foam" id="foam"></i>';
   $('#words').innerHTML = S.map((s, i) => `<div class="word-wrap"><span class="word${i ? '' : ' is-active'}" style="color:${D.flavours[s.flavour].ink}">${esc(s.word)}<i></i></span></div>`).join('');
-  /* the hero shows each slide's own look: 'splash' (the default) or 'twirl'.
-     A missing splash file falls back to the twirl picture through data-fallback. */
-  const heroGlass = s => (s.look === 'twirl' ? src.shake : src.hero)(s.flavour);
+  /* the hero shows each slide's own look: the original splash-crown glass
+     (default), 'splash' (the side-splash shot) or 'twirl' (the plain glass).
+     A missing hero file falls back to the twirl picture through data-fallback. */
+  const heroGlass = s => (s.look === 'twirl' ? src.shake : s.look === 'splash' ? src.hero : src.first)(s.flavour);
   $('#jar-float').innerHTML = S.map((s, i) => {
     const twirl = src.shake(s.flavour), heroImg = heroGlass(s);
     const fb = heroImg === twirl ? '' : ` data-fallback="${twirl}"`;

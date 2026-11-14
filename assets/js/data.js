@@ -62,9 +62,10 @@ window.WHIRL = {
    * — depth drives the mouse parallax (bigger = closer to the camera); pieces with a depth
    * of 1 or more float in front of the glass, the rest behind it.
    * `tagsSide` is the side of the headline the three tags are tucked into.
-   * `look` picks the hero's glass picture: 'splash' (the default, a dramatic
-   * splash shot) or 'twirl' (the plain glass the rest of the site shows).
-   * A missing or broken splash file falls back to the twirl picture. */
+   * `look` picks the hero's glass picture: the original splash-crown glass
+   * (the default), 'splash' (the side-splash shot) or 'twirl' (the plain
+   * glass the rest of the site shows). A missing or broken hero picture
+   * falls back to the twirl glass. */
   slides: [
     {
       word: 'Grapeline', product: 'gr', flavour: 'grape',
