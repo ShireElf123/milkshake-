@@ -104,6 +104,7 @@
   let face = { cap: 0.67, x: 0.5, tall: 0.73 };  // cap, x and ascender height of the display face (em); measured in fit()
   const layout = [];                             // per headline: font size, baseline and its runs of low letters
   let cur = 0, busy = false, heroSeen = true, hold = false, auto = true, timer = 0;
+  let restoringFocus = false;   // true while the cart puts focus back where it was
   let px = 0, py = 0;
   let liquid = null;                             // the moving backdrop (liquid.js), once it has loaded
   let pieces = [], pushing = false;              // the fruit on screen, and whether the push simulation is running
@@ -492,7 +493,7 @@
     const card = $('#hcard');
     card.addEventListener('pointerenter', () => { hold = true; });
     card.addEventListener('pointerleave', () => { hold = false; });
-    hero.addEventListener('focusin', () => { hold = true; });
+    hero.addEventListener('focusin', () => { if (!restoringFocus) hold = true; });
     hero.addEventListener('focusout', () => { hold = false; });
 
     /* swipe */
@@ -747,7 +748,19 @@
     el.classList.remove('is-open'); $('#overlay').classList.remove('is-open');
     el.inert = true; el.setAttribute('aria-hidden', 'true');
     behindCart.forEach(part => { part.inert = false; });
-    if (lastFocus && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
+    if (lastFocus && document.contains(lastFocus)) {
+      /* putting focus back must not trip the hero's "someone is tabbing through
+         me" pause: without this, closing the cart parked focus on a hero control
+         and autoplay never came back. Keyboard users keep the pause (their focus
+         ring is visible); mouse users get the carousel back. */
+      restoringFocus = true;
+      lastFocus.focus({ preventScroll: true });
+      restoringFocus = false;
+      if (hero.contains(document.activeElement)) {
+        const kb = !!(document.activeElement.matches && document.activeElement.matches(':focus-visible'));
+        hold = kb || $('#hcard').matches(':hover');
+      }
+    }
   }
 
   /* one click handler for every data-act control */
