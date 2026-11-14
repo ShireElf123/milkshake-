@@ -2,7 +2,7 @@
  *
  * Everything a non-developer is likely to change lives in this file:
  * brand name, flavours, hero slides, products, prices and shop rules.
- * "Whirl" is a placeholder brand; prices and copy are placeholders too.
+ * Prices and copy are placeholders.
  */
 window.WHIRL = {
   brand: 'Whirl',

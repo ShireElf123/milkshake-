@@ -2,7 +2,7 @@
 
 A three-page milkshake storefront: an animated landing page, a shop and a product page, with a cart drawer. It is a static site with no build step and no external requests: fonts, scripts and images are all in this repository.
 
-> "Whirl", the product names, prices, copy, nutrition values and contact details are **placeholders**. Checkout is a demo message; no payment provider is connected. See [Before you launch](#before-you-launch).
+> Whirl is the brand. The product names, prices, copy, nutrition values and contact details are **placeholders**. Checkout is a demo message; no payment provider is connected. See [Before you launch](#before-you-launch).
 
 ## Run it
 
@@ -48,6 +48,7 @@ assets/
   img/og.jpg            preview image for links shared on social media
   vendor/               GSAP (animation), Matter.js (falling fruit, loaded on demand)
 tools/                  optional Python scripts: a preview server and the image pipeline (not needed to run the site)
+.vercelignore           keeps tools/ and this file out of a Vercel deployment
 ```
 
 ## Change the content
@@ -64,10 +65,12 @@ The brand name also appears as text in `index.html` (title, description, logo, f
 
 ### Add a flavour
 
-1. In `tools/build_assets.py`, add a line to `FLAVOURS` with the backdrop and drink colours, then run the script (see below). It writes `assets/img/shakes/<key>.webp` and `assets/img/scenes/<key>.webp`.
-2. Add the fruit cut-outs to `assets/img/fruit/`.
-3. In `assets/js/data.js`, add the flavour to `flavours`, a slide to `slides` and a product to `products`.
-4. In `index.html`, add a badge icon to the sprite: `<symbol id="i-<key>" …>`.
+1. In `tools/build_assets.py`, add a line to `FLAVOURS` with the backdrop and drink colours.
+2. Optional: give the flavour its own pictures by adding `tools/masters/glass-<key>.webp` and `tools/masters/scene-<key>.webp`. Without them the script recolours the generic strawberry-pink masters.
+3. Run the script (see below). It writes `assets/img/shakes/<key>.webp` and `assets/img/scenes/<key>.webp`.
+4. Add the fruit cut-outs to `assets/img/fruit/`.
+5. In `assets/js/data.js`, add the flavour to `flavours`, a slide to `slides` and a product to `products`.
+6. In `index.html`, add a badge icon to the sprite: `<symbol id="i-<key>" …>`.
 
 ## Rebuild the images
 
@@ -76,18 +79,25 @@ Only needed if you change colours or add artwork.
 ```bash
 pip install pillow numpy scipy
 
-# recolour the two master images into every flavour, and rebuild og.jpg
+# build every glass, backdrop and og.jpg from the masters
 python3 tools/build_assets.py
 
 # cut a photo on a flat blue or green backdrop into a transparent, trimmed picture
 python3 tools/cutout.py mango.png assets/img/fruit/mango.webp --key b
+
+# cut out a glass as a master (it stays see-through); use the same --crop for every flavour so they line up
+python3 tools/cutout.py glass.png tools/masters/glass-mango.webp --key g --glassy --crop 119,73,729,1189 --size 0 --lossless
 ```
 
-All five glasses come from one master (`tools/masters/glass.webp`) and all five backdrops from another (`tools/masters/scene.webp`); the script shifts their colour. To give a flavour its own photograph, replace its file in `assets/img/shakes/` or `assets/img/scenes/` and remove it from `FLAVOURS`, so the script does not overwrite it.
+The masters are in `tools/masters/`:
+
+- `glass-<flavour>.webp` is that flavour's shake in its glass. All five show the same glass from the same angle, so the slides line up. They are used as they are.
+- `scene-<flavour>.webp` is that flavour's backdrop. The script nudges its overall tone to the flavour's `scene` colour, which keeps the headline readable.
+- `glass.webp` and `scene.webp` are generic strawberry-pink masters. Strawberry uses this backdrop, and a new flavour without pictures of its own gets both, recoloured.
 
 ## Before you launch
 
-- Replace the placeholder brand, product names, prices, descriptions, ratings and review counts.
+- Check the product names, prices and descriptions, and replace the made-up ratings and review counts.
 - Replace the nutrition, ingredients and allergen text on the product page with real information.
 - Replace `hello@example.com` and the opening hours in the footer.
 - Connect a real checkout. The Checkout button only shows a message (`checkout` in `assets/js/app.js`).
@@ -97,7 +107,7 @@ All five glasses come from one master (`tools/masters/glass.webp`) and all five 
 
 ## Credits and licences
 
-- **Images.** The glass, the backdrop, the fruit and the chocolate pieces were made with an AI image generator and then cut out and recoloured with the scripts in `tools/`. None of them shows a real product.
+- **Images.** The glasses, the backdrops, the fruit and the chocolate pieces were made with an AI image generator and then cut out and colour-matched with the scripts in `tools/`. None of them shows a real product.
 - **Fonts.** [Suez One](https://fonts.google.com/specimen/Suez+One) and [Outfit](https://fonts.google.com/specimen/Outfit), both under the SIL Open Font License 1.1, taken from the Fontsource packages (version 5.3.0). The licence texts are in `assets/fonts/`.
 - **GSAP 3.15.1.** Subject to GreenSock's [standard "no charge" licence](https://gsap.com/standard-license). Read it before commercial use.
 - **Matter.js 0.20.0.** MIT licence; the text is in `assets/vendor/`.

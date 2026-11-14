@@ -36,7 +36,7 @@ def _fit_backdrop(img, mask, order=2):
     return np.clip(out, 0, 1)
 
 
-def key_image(path, key="g", lo=0.10, hi=0.92, solid=False, core_px=6, despeckle=14, halo_px=12, spill=1.0, verbose=True):
+def key_image(path, key="g", lo=0.10, hi=0.92, solid=False, core_px=6, despeckle=14, halo_px=12, spill=1.0, spill_tint=None, verbose=True):
     """Return float RGBA array (h, w, 4) in 0..1.
 
     key        'g' or 'b' - which chroma channel the backdrop uses
@@ -46,6 +46,8 @@ def key_image(path, key="g", lo=0.10, hi=0.92, solid=False, core_px=6, despeckle
     despeckle  remove isolated matte islands smaller than this many pixels
     halo_px    faint (<15%) matte values further than this from the subject are dropped
     spill      despill limit: key channel <= spill * max(other two channels)
+    spill_tint a stricter limit for clearly coloured pixels only: neutral ones (white
+               reflections, grey glass) keep `spill`; None = same as spill
     """
     img = load_rgb(path)
     ch = {"r": 0, "g": 1, "b": 2}[key]
@@ -102,7 +104,12 @@ def key_image(path, key="g", lo=0.10, hi=0.92, solid=False, core_px=6, despeckle
     # residual despill: the key channel may never exceed the other two
     others = [c for c in range(3) if c != ch]
     lim = np.maximum(F[..., others[0]], F[..., others[1]])
-    F[..., ch] = np.minimum(F[..., ch], lim * spill)
+    limit = spill
+    if spill_tint is not None:
+        top = F.max(axis=-1)
+        saturation = (top - F.min(axis=-1)) / np.maximum(top, 1e-6)
+        limit = spill + (spill_tint - spill) * np.clip(saturation * 3, 0, 1)
+    F[..., ch] = np.minimum(F[..., ch], lim * limit)
 
     return np.dstack([F, a])
 

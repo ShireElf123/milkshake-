@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
-"""Rebuild the per-flavour hero images from the two masters.
+"""Build the hero images of every flavour from the masters.
 
     pip install pillow numpy scipy
     python3 tools/build_assets.py
 
 Inputs  (tools/masters/)
-    glass.webp   one strawberry-pink shake in a clear glass, already cut out (RGBA)
-    scene.webp   one tone-on-tone pink splash backdrop
+    glass-<flavour>.webp   the shake in its glass, cut out (RGBA); used as photographed
+    scene-<flavour>.webp   the backdrop; its overall tone is nudged to the flavour's scene colour
+    glass.webp, scene.webp generic strawberry-pink masters: a flavour without a picture of
+                           its own gets these, recoloured
 
 Outputs (assets/img/)
-    shakes/<flavour>.webp   the glass, recoloured        (transparent background)
-    scenes/<flavour>.webp   the backdrop, recoloured
-    og.jpg                  1200x630 social share image
+    shakes/<flavour>.webp   the glass                    (transparent background)
+    scenes/<flavour>.webp   the backdrop
+    og.jpg                  1200x630 social share image  (first flavour in the list)
 
-To add a flavour: add one line to FLAVOURS below, run this script, then add the
+To add a flavour: add one line to FLAVOURS below, optionally add its own masters
+(see tools/cutout.py for cutting out a glass), run this script, then add the
 matching entries in assets/js/data.js.
 """
 import os
@@ -31,9 +34,10 @@ OUT = os.path.join(ROOT, 'assets', 'img')
 
 GLASS_SRC = '#c57671'   # median colour of the shake in masters/glass.webp
 SCENE_SRC = '#e7999b'   # median colour of masters/scene.webp
-GLASS_STRETCH = 1.10    # the master glass is a touch slim; widen it slightly
+GLASS_CANVAS = 610      # every glass is centred on a canvas this wide, so all flavours line up
+GLASS_STRETCH = 1.06    # the glass is a touch slim; widen it slightly
 
-# flavour: scene = mid tone of the backdrop, shake = mid tone of the drink;
+# flavour: scene = mid tone of the backdrop, shake = mid tone of the drink (generic master only);
 # ink and word are the headline colour and text used on og.jpg (first flavour only)
 FLAVOURS = {
     'grape':      dict(scene='#a968b6', shake='#ad79cc', ink='#fbd9ff', word='Grapeline'),
@@ -45,13 +49,41 @@ FLAVOURS = {
 
 
 def load(name):
-    im = Image.open(os.path.join(MASTERS, name))
-    return np.asarray(im).astype(np.float64) / 255.0
+    """A master as a float array, or None if there is no such file."""
+    path = os.path.join(MASTERS, name)
+    if not os.path.exists(path):
+        return None
+    return np.asarray(Image.open(path)).astype(np.float64) / 255.0
 
 
 def to_img(arr):
     mode = 'RGBA' if arr.shape[-1] == 4 else 'RGB'
     return Image.fromarray((np.clip(arr, 0, 1) * 255 + 0.5).astype(np.uint8), mode)
+
+
+def median_hex(rgb):
+    r, g, b = (np.median(rgb.reshape(-1, 3), axis=0) * 255 + 0.5).astype(int)
+    return f'#{r:02x}{g:02x}{b:02x}'
+
+
+def glass_image(name, f, generic):
+    own = load(f'glass-{name}.webp')
+    if own is None:
+        own = np.dstack([recolor(generic[..., :3], GLASS_SRC, f['shake']), generic[..., 3]])
+    img = to_img(own)
+    if img.width < GLASS_CANVAS:   # centre a narrower master on the common canvas
+        wide = Image.new('RGBA', (GLASS_CANVAS, img.height), (0, 0, 0, 0))
+        wide.paste(img, ((GLASS_CANVAS - img.width) // 2, 0))
+        img = wide
+    return img.resize((round(img.width * GLASS_STRETCH), img.height), Image.LANCZOS)
+
+
+def scene_image(name, f, generic):
+    own = load(f'scene-{name}.webp')
+    if own is None:
+        return to_img(recolor(generic, SCENE_SRC, f['scene']))
+    own = own[..., :3]
+    return to_img(recolor(own, median_hex(own), f['scene'], hue_keep=1.0))
 
 
 def build():
@@ -60,19 +92,17 @@ def build():
     for sub in ('shakes', 'scenes'):
         os.makedirs(os.path.join(OUT, sub), exist_ok=True)
 
+    made = {}
     for name, f in FLAVOURS.items():
-        g = np.dstack([recolor(glass[..., :3], GLASS_SRC, f['shake']), glass[..., 3]])
-        gi = to_img(g)
-        gi = gi.resize((round(gi.width * GLASS_STRETCH), gi.height), Image.LANCZOS)
+        gi = glass_image(name, f, glass)
         gi.save(os.path.join(OUT, 'shakes', name + '.webp'), 'WEBP', quality=88, method=6, alpha_quality=92)
-
-        si = to_img(recolor(scene, SCENE_SRC, f['scene']))
+        si = scene_image(name, f, scene)
         si.save(os.path.join(OUT, 'scenes', name + '.webp'), 'WEBP', quality=82, method=6)
+        made[name] = (si, gi)
         print(f'{name:11s} shake {gi.size}  scene {si.size}')
 
     first = next(iter(FLAVOURS))   # the share image shows the first flavour in the list
-    og(to_img(recolor(scene, SCENE_SRC, FLAVOURS[first]['scene'])),
-       Image.open(os.path.join(OUT, 'shakes', first + '.webp')), FLAVOURS[first])
+    og(made[first][0], made[first][1], FLAVOURS[first])
 
 
 def og(scene, glass, f, size=(1200, 630)):

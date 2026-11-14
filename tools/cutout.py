@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Turn a picture into a trimmed, transparent WEBP for the site.
+"""Turn a picture into a transparent WEBP for the site.
 
     pip install pillow numpy scipy
 
-    # a photo of fruit on a flat blue (or green) backdrop -> cut-out
+    # a photo of fruit on a flat blue (or green) backdrop -> trimmed cut-out
     python3 tools/cutout.py mango.png assets/img/fruit/mango.webp --key b
+
+    # a glass on a flat backdrop -> master for build_assets.py (keeps the glass see-through)
+    python3 tools/cutout.py glass.png tools/masters/glass-mango.webp --key g --glassy \
+        --crop 119,73,729,1189 --size 0 --lossless
 
     # a picture that is already transparent: just trim, resize and adjust the tone
     python3 tools/cutout.py piece.png assets/img/fruit/piece.webp --gamma 1.2 --contrast 1.1
@@ -30,18 +34,23 @@ def main():
     ap.add_argument('--key', choices=['g', 'b'], help='backdrop colour to remove; leave out if the picture is already transparent')
     ap.add_argument('--glassy', action='store_true', help='see-through subject (glass, liquid): keep soft transparency inside it')
     ap.add_argument('--spill', type=float, default=1.0, help='raise to ~1.15 to keep blue/purple tones in the subject (grapes)')
-    ap.add_argument('--size', type=int, default=560, help='longest side of the result in pixels')
+    ap.add_argument('--spill-tint', type=float, help='stricter limit for coloured areas, e.g. 0.75, to remove a backdrop tint that shows through liquid or glass')
+    ap.add_argument('--crop', help='x0,y0,x1,y1: cut this box out of the source instead of trimming to the subject')
+    ap.add_argument('--lossless', action='store_true', help='save without compression loss (for masters)')
+    ap.add_argument('--size', type=int, default=560, help='longest side of the result in pixels; 0 keeps the size')
     ap.add_argument('--gamma', type=float, default=1.0, help='above 1 darkens the mid tones')
     ap.add_argument('--contrast', type=float, default=1.0)
     ap.add_argument('--quality', type=int, default=88)
     args = ap.parse_args()
 
     if args.key:
-        rgba = key_image(args.src, key=args.key, solid=not args.glassy, core_px=5, spill=args.spill)
-        img = to_image(rgba).crop(bbox(rgba))
+        rgba = key_image(args.src, key=args.key, solid=not args.glassy, core_px=5, spill=args.spill, spill_tint=args.spill_tint)
+        img = to_image(rgba)
+        box = bbox(rgba)
     else:
         img = Image.open(args.src).convert('RGBA')
-        img = img.crop(img.getbbox())
+        box = img.getbbox()
+    img = img.crop(tuple(int(v) for v in args.crop.split(',')) if args.crop else box)
 
     if args.gamma != 1.0 or args.contrast != 1.0:
         a = np.asarray(img).astype(np.float64) / 255.0
@@ -50,11 +59,11 @@ def main():
         a[..., :3] = np.clip(rgb, 0, 1)
         img = Image.fromarray((a * 255 + 0.5).astype(np.uint8), 'RGBA')
 
-    scale = args.size / max(img.size)
+    scale = args.size / max(img.size) if args.size else 1
     if scale < 1:
         img = img.resize((round(img.width * scale), round(img.height * scale)), Image.LANCZOS)
     os.makedirs(os.path.dirname(os.path.abspath(args.dst)), exist_ok=True)
-    img.save(args.dst, quality=args.quality, method=6)
+    img.save(args.dst, quality=args.quality, method=6, lossless=args.lossless)
     print(args.dst, img.size)
 
 

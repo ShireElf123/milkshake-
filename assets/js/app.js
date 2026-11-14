@@ -133,7 +133,7 @@
     const onRight = S[cur].tagsSide === 'right';
     const width = tags.offsetWidth, height = tags.offsetHeight;
     const pad = $('#hcard').offsetLeft, mid = W / 2, gap = L.size * 0.045;
-    const glass = $('#jar-move').offsetWidth * 0.26;      // half the width the shake takes up at this height
+    const glass = $('#jar-move').offsetWidth * 0.235;      // half the width the shake takes up at this height
     let x = null, y = L.baseline - face.x * L.size - gap * 0.8 - height;
     for (const run of onRight ? [...L.runs].reverse() : L.runs) {
       const from = Math.max(run.left + gap, onRight ? mid + glass : pad);
@@ -302,7 +302,7 @@
 
   /* ───────── 3. Home sections ───────── */
   const card = (p, i, extra = '') => `<article class="pcard${extra}" style="--tile:${tileOf(p)};--i:${i}">
-    <a class="pcard__media" href="#/product/${p.id}" tabindex="-1" aria-hidden="true">${p.badge ? `<span class="badge">${esc(p.badge)}</span>` : ''}<span class="pcard__float"><img src="${src.shake(p.flavour)}" alt="" loading="lazy" width="601" height="1116"></span></a>
+    <a class="pcard__media" href="#/product/${p.id}" tabindex="-1" aria-hidden="true">${p.badge ? `<span class="badge">${esc(p.badge)}</span>` : ''}<span class="pcard__float"><img src="${src.shake(p.flavour)}" alt="" loading="lazy" width="647" height="1116"></span></a>
     <div class="pcard__body">
       <h3><a href="#/product/${p.id}">${esc(p.name)}</a></h3>
       <small>${esc(p.sub)} · <span class="rating">${icon('star')}${p.rating.toFixed(1)}</span></small>
@@ -376,7 +376,7 @@
   function renderProduct(id) {
     const p = productById(id) || D.products[0];
     Object.assign(view, { id: p.id, pack: 0, sub: false, qty: 1 });
-    $('#product-view').innerHTML = `<div class="gallery" style="--tile:${tileOf(p)}"><img src="${src.shake(p.flavour)}" alt="${esc(p.name)} milkshake" width="601" height="1116"></div><div id="product-info"></div>`;
+    $('#product-view').innerHTML = `<div class="gallery" style="--tile:${tileOf(p)}"><img src="${src.shake(p.flavour)}" alt="${esc(p.name)} milkshake" width="647" height="1116"></div><div id="product-info"></div>`;
     renderProductInfo();
     return p;
   }
