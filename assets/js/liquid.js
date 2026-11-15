@@ -162,12 +162,19 @@
           imgs[k] = img;
           if (--left) return;
           if (!gl || gl.isContextLost()) return;
-          gl.activeTexture(gl.TEXTURE0);
-          const photo = upload(imgs[0]);
-          gl.activeTexture(gl.TEXTURE1);
-          const flow = upload(imgs[1]);
-          sets[i] = { ready: true, photo, flow };
-          if (i === live) canvas.classList.add('is-live');
+          try {
+            gl.activeTexture(gl.TEXTURE0);
+            const photo = upload(imgs[0]);
+            gl.activeTexture(gl.TEXTURE1);
+            const flow = upload(imgs[1]);
+            sets[i] = { ready: true, photo, flow };
+            if (i === live) canvas.classList.add('is-live');
+          } catch (e) {
+            /* a sandboxed embed without allow-same-origin taints the pictures:
+               uploading them then throws a SecurityError. Degrade exactly like
+               a failed load — no liquid layer, the photograph stays still. */
+            sets[i] = null;
+          }
         };
         img.onerror = () => { sets[i] = null; };                  /* no mask, no layer: the photo stays */
         img.src = url;
