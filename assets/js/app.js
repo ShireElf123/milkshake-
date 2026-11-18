@@ -1044,7 +1044,9 @@
   /* The moving liquid is the one part that loads late on purpose: the hero is complete
      without it, and the photograph simply stays still if it cannot run. */
   function initLiquid() {
-    if (!motion) return;
+    /* the moving wave is opt-in (`wave` in data.js): drawn over the photograph it
+       left a thin visible contour along the waterline, so the hero water stays still */
+    if (!motion || !D.wave) return;
     loadScript('assets/js/liquid.js').then(() => {
       liquid = window.whirlLiquid && window.whirlLiquid.start($('#liquid'), () => { liquid = null; });
       if (!liquid) return;

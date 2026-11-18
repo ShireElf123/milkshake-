@@ -33,7 +33,7 @@ Behaviour worth knowing:
 - Below 860 px the navigation becomes a menu button; below 760 px the hero is rearranged for phones.
 - Changing flavour is a small event: the new backdrop spreads out of the glass as a wobbling blob with a foam edge, the shake that lands throws drops in its own colour, and the headline slides out while the next one slides in.
 - The fruit on the hero is pushable: it drifts away and spins when the mouse or a finger comes near, and floats back afterwards. It keeps bobbing either way.
-- The liquid in each backdrop moves on its own (`assets/js/liquid.js`, a small WebGL layer drawn over the photograph). It loads after the page is up, pauses while the hero is off screen, and where WebGL is missing — or with reduced motion on — the photograph simply stays still.
+- The hero water is the photograph's own sculpted splash, kept still. The optional moving wave (`assets/js/liquid.js`, a small WebGL layer drawn over the photograph) is switched off — `wave: false` in `data.js` — because drawn over the photo it left a thin visible contour along the waterline. Set `wave: true` to bring it back: it loads after the page is up, pauses while the hero is off screen, and where WebGL is missing — or with reduced motion on — the photograph simply stays still.
 - Every shake has a second photograph, served with cream and a straw: the little card on the hero shows it, and the product page has both pictures to flip between.
 - The hero shows the original splash-crown glasses (`<flavour>-first.webp`); the shop, the product page, the cart and the hero's little card keep the plain twirl glass. Per slide, `look: 'splash'` swaps in the side-splash shot (`<flavour>-splash.webp`) and `look: 'twirl'` the plain glass. A hero picture that fails to load falls back to the twirl glass, so the hero is never empty.
 - The whole page follows the active flavour, not just the hero: the "why" section retints, the band and small accents pick up the flavour's colours, the shop page returns to the neutral brand theme, and a product page themes itself from its own flavour. All of it comes from `data.js`.
@@ -50,7 +50,7 @@ assets/
   css/styles.css        all styles, in numbered sections
   js/data.js            content: brand, flavours, hero slides, products, shop rules
   js/app.js             behaviour, in numbered sections
-  js/liquid.js          the moving liquid on the hero (loaded after the page, optional)
+  js/liquid.js          the moving liquid on the hero (optional; off — set wave: true in data.js)
   fonts/                Suez One (headlines) and Outfit (text)
   img/shakes/           one glass per flavour (transparent), plus <-first.webp (splash-crown hero glass) and <-splash.webp (side-splash hero look)
   img/scenes/           one hero backdrop per flavour, plus a <-flow.webp mask that marks the liquid in it

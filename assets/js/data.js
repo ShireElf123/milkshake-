@@ -9,6 +9,13 @@ window.WHIRL = {
   tagline: 'thick, creamy milkshakes made with real fruit',   /* titles, meta tags, previews */
   socialTag: '#ShakeItUp',                                    /* the footer's hashtag */
 
+  /* The animated water wave that sloshes over the hero photograph (a small WebGL
+     layer, assets/js/liquid.js). It is OFF: drawn over the photograph it left a
+     thin visible contour along the waterline. The photograph keeps its own
+     sculpted splash; set this to true to bring the moving wave — and its tap
+     ripples — back. */
+  wave: false,
+
   /* Page colours in one place. The stylesheet holds the same values as fallbacks;
      changing them here re-skins every page. While the hero is showing a flavour,
      its own tile/soft/deep colours take over --accent/--soft/--deep. */
